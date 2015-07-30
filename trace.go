@@ -6,40 +6,50 @@ import (
 	"runtime"
 )
 
+// Wrap takes the original error and wraps it into the Trace struct
+// memorizing the context of the error.
+func Wrap(err error) error {
+	t := newTrace(runtime.Caller(1))
+	t.error = err
+	return t
+}
+
 // Errorf is similar to fmt.Errorf except that it captures
 // more information about the origin of error, such as
 // callee, line number and function that simplifies debugging
 func Errorf(format string, args ...interface{}) error {
-	msg := fmt.Sprintf(format, args...)
-	pc, filePath, lineNo, ok := runtime.Caller(1)
+	t := newTrace(runtime.Caller(1))
+	t.error = fmt.Errorf(format, args...)
+	return t
+}
+
+func newTrace(pc uintptr, filePath string, line int, ok bool) *TraceErr {
 	if !ok {
 		return &TraceErr{
-			Message: msg,
-			File:    "unknown_file",
-			Path:    "unknown_path",
-			Func:    "unknown_func",
-			Line:    0,
+			File: "unknown_file",
+			Path: "unknown_path",
+			Func: "unknown_func",
+			Line: 0,
 		}
 	}
 	return &TraceErr{
-		Message: msg,
-		File:    filepath.Base(filePath),
-		Path:    filePath,
-		Func:    runtime.FuncForPC(pc).Name(),
-		Line:    lineNo,
+		File: filepath.Base(filePath),
+		Path: filePath,
+		Func: runtime.FuncForPC(pc).Name(),
+		Line: line,
 	}
 }
 
 // TraceErr contains error message and some additional
 // information about the error origin
 type TraceErr struct {
-	Message string
-	File    string
-	Path    string
-	Func    string
-	Line    int
+	error
+	File string
+	Path string
+	Func string
+	Line int
 }
 
 func (e *TraceErr) Error() string {
-	return fmt.Sprintf("[%v:%v] %v", e.File, e.Line, e.Message)
+	return fmt.Sprintf("[%v:%v] %v", e.File, e.Line, e.error)
 }
