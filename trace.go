@@ -57,3 +57,7 @@ type TraceErr struct {
 func (e *TraceErr) Error() string {
 	return fmt.Sprintf("[%v:%v] %v %v", e.File, e.Line, e.Message, e.error)
 }
+
+func (e *TraceErr) OrigError() error {
+	return e.error
+}
