@@ -61,3 +61,10 @@ func (e *TraceErr) Error() string {
 func (e *TraceErr) OrigError() error {
 	return e.error
 }
+
+// Error is an interface that helps to adapt usage of trace in the code
+// When applications define new error types, they can implement the interface
+// So error handlers can use OrigError() to retrieve error from the wrapper
+type Error interface {
+	OrigError() error
+}
