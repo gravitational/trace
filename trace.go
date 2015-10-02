@@ -6,6 +6,12 @@ import (
 	"runtime"
 )
 
+var debug bool
+
+func EnableDebug() {
+	debug = true
+}
+
 // Wrap takes the original error and wraps it into the Trace struct
 // memorizing the context of the error.
 func Wrap(err error, args ...interface{}) error {
@@ -24,6 +30,16 @@ func Errorf(format string, args ...interface{}) error {
 	t := newTrace(runtime.Caller(1))
 	t.error = fmt.Errorf(format, args...)
 	return t
+}
+
+// Fatalf. If debug is false Fatalf calls Errorf. If debug is
+// true Fatalf calls panic
+func Fatalf(format string, args ...interface{}) error {
+	if debug {
+		panic(fmt.Sprintf(format, args))
+	} else {
+		return Errorf(format, args)
+	}
 }
 
 func newTrace(pc uintptr, filePath string, line int, ok bool) *TraceErr {
