@@ -82,5 +82,6 @@ func (e *TraceErr) OrigError() error {
 // When applications define new error types, they can implement the interface
 // So error handlers can use OrigError() to retrieve error from the wrapper
 type Error interface {
+	error
 	OrigError() error
 }
