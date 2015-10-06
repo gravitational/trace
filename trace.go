@@ -8,7 +8,7 @@ import (
 
 // Wrap takes the original error and wraps it into the Trace struct
 // memorizing the context of the error.
-func Wrap(err error, args ...interface{}) error {
+func Wrap(err error, args ...interface{}) Error {
 	t := newTrace(runtime.Caller(1))
 	t.error = err
 	if len(args) != 0 {
