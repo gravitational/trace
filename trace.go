@@ -78,6 +78,10 @@ type Trace struct {
 	Line int
 }
 
+func (t Trace) String() string {
+	return fmt.Sprintf("%v:%v", t.File, t.Line)
+}
+
 // TraceErr contains error message and some additional
 // information about the error origin
 type TraceErr struct {
