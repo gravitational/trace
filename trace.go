@@ -16,6 +16,10 @@ func EnableDebug() {
 // memorizing the context of the error.
 func Wrap(err error, args ...interface{}) Error {
 	t := newTrace(runtime.Caller(1))
+	if s, ok := err.(TraceSetter); ok {
+		s.SetTrace(t.Trace)
+		return s
+	}
 	t.error = err
 	if len(args) != 0 {
 		t.Message = fmt.Sprintf(fmt.Sprintf("%v", args[0]), args[1:]...)
@@ -45,29 +49,41 @@ func Fatalf(format string, args ...interface{}) error {
 func newTrace(pc uintptr, filePath string, line int, ok bool) *TraceErr {
 	if !ok {
 		return &TraceErr{
-			File: "unknown_file",
-			Path: "unknown_path",
-			Func: "unknown_func",
-			Line: 0,
+			nil,
+			Trace{
+				File: "unknown_file",
+				Path: "unknown_path",
+				Func: "unknown_func",
+				Line: 0,
+			},
+			"",
 		}
 	}
 	return &TraceErr{
-		File: filepath.Base(filePath),
-		Path: filePath,
-		Func: runtime.FuncForPC(pc).Name(),
-		Line: line,
+		nil,
+		Trace{
+			File: filepath.Base(filePath),
+			Path: filePath,
+			Func: runtime.FuncForPC(pc).Name(),
+			Line: line,
+		},
+		"",
 	}
+}
+
+type Trace struct {
+	File string
+	Path string
+	Func string
+	Line int
 }
 
 // TraceErr contains error message and some additional
 // information about the error origin
 type TraceErr struct {
 	error
+	Trace
 	Message string
-	File    string
-	Path    string
-	Func    string
-	Line    int
 }
 
 func (e *TraceErr) Error() string {
@@ -84,4 +100,9 @@ func (e *TraceErr) OrigError() error {
 type Error interface {
 	error
 	OrigError() error
+}
+
+type TraceSetter interface {
+	Error
+	SetTrace(Trace)
 }
