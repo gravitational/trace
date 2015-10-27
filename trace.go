@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"runtime"
+	"strings"
 )
 
 var debug bool
@@ -71,6 +72,23 @@ func newTrace(pc uintptr, filePath string, line int, ok bool) *TraceErr {
 	}
 }
 
+type Traces []Trace
+
+func (s *Traces) SetTrace(t Trace) {
+	*s = append(*s, t)
+}
+
+func (s Traces) String() string {
+	if len(s) == 0 {
+		return ""
+	}
+	out := make([]string, len(s))
+	for i, t := range s {
+		out[i] = t.String()
+	}
+	return strings.Join(out, ",")
+}
+
 type Trace struct {
 	File string
 	Path string
@@ -78,7 +96,7 @@ type Trace struct {
 	Line int
 }
 
-func (t Trace) String() string {
+func (t *Trace) String() string {
 	return fmt.Sprintf("%v:%v", t.File, t.Line)
 }
 
