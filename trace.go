@@ -31,6 +31,10 @@ func EnableDebug() {
 // Wrap takes the original error and wraps it into the Trace struct
 // memorizing the context of the error.
 func Wrap(err error, args ...interface{}) Error {
+	if err == nil {
+		return nil
+	}
+
 	t := newTrace(runtime.Caller(1))
 	if s, ok := err.(TraceSetter); ok {
 		s.SetTrace(t.Trace)
