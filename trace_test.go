@@ -37,6 +37,20 @@ func (s *TraceSuite) TestWrap(c *C) {
 	c.Assert(err.Error(), Matches, "*.trace_test.go.*")
 }
 
+func (s *TraceSuite) TestWrapNil(c *C) {
+	err1 := Wrap(nil)
+	c.Assert(err1, IsNil)
+
+	var err2 error
+	err2 = nil
+
+	err3 := Wrap(err2)
+	c.Assert(err3, IsNil)
+
+	err4 := Wrap(err3)
+	c.Assert(err4, IsNil)
+}
+
 type TestError struct {
 	Traces
 	Param string
