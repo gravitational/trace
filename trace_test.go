@@ -48,7 +48,7 @@ func (s *TraceSuite) TestWrapNil(c *C) {
 	c.Assert(err3, IsNil)
 
 	err4 := Wrap(err3)
-	c.Assert(err4 == nil, Equals, true)
+	c.Assert(err4, IsNil)
 }
 
 type TestError struct {
