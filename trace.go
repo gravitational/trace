@@ -13,6 +13,9 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
+// Package trace implements utility functions for capturing debugging
+// information about file and line in error reports and logs.
 package trace
 
 import (
@@ -24,6 +27,7 @@ import (
 
 var debug bool
 
+// EnableDebug turns on debugging mode, that causes Fatalf to panic
 func EnableDebug() {
 	debug = true
 }
@@ -56,7 +60,7 @@ func Errorf(format string, args ...interface{}) error {
 	return t
 }
 
-// Fatalf. If debug is false Fatalf calls Errorf. If debug is
+// Fatalf - If debug is false Fatalf calls Errorf. If debug is
 // true Fatalf calls panic
 func Fatalf(format string, args ...interface{}) error {
 	if debug {
@@ -91,12 +95,15 @@ func newTrace(pc uintptr, filePath string, line int, ok bool) *TraceErr {
 	}
 }
 
+// Traces is a list of trace entries
 type Traces []Trace
 
+// SetTrace adds a new entry to the list
 func (s *Traces) SetTrace(t Trace) {
 	*s = append(*s, t)
 }
 
+// String returns debug-friendly representaton of traces
 func (s Traces) String() string {
 	if len(s) == 0 {
 		return ""
@@ -108,13 +115,19 @@ func (s Traces) String() string {
 	return strings.Join(out, ",")
 }
 
+// Trace stores structured trace entry, including file line and path
 type Trace struct {
-	File string
-	Path string
-	Func string
-	Line int
+	// File is a file name
+	File string `json:"file"`
+	// Path is a full file path
+	Path string `json:"path"`
+	// Func is a function name
+	Func string `json:"func"`
+	// Line is a code line number
+	Line int `json:"line"`
 }
 
+// String returns debug-friendly representation of this trace
 func (t *Trace) String() string {
 	return fmt.Sprintf("%v:%v", t.File, t.Line)
 }
@@ -131,6 +144,7 @@ func (e *TraceErr) Error() string {
 	return fmt.Sprintf("[%v:%v] %v %v", e.File, e.Line, e.Message, e.error)
 }
 
+// OrigError returns original wrapped error
 func (e *TraceErr) OrigError() error {
 	return e.error
 }
@@ -143,6 +157,7 @@ type Error interface {
 	OrigError() error
 }
 
+// TraceSetter indicates that this error can store traces
 type TraceSetter interface {
 	Error
 	SetTrace(Trace)

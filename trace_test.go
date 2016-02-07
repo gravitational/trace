@@ -16,8 +16,12 @@ limitations under the License.
 package trace
 
 import (
+	"bytes"
 	"fmt"
+	"strings"
 	"testing"
+
+	log "github.com/Sirupsen/logrus"
 
 	. "gopkg.in/check.v1"
 )
@@ -49,6 +53,25 @@ func (s *TraceSuite) TestWrapNil(c *C) {
 
 	err4 := Wrap(err3)
 	c.Assert(err4, IsNil)
+}
+
+func (s *TraceSuite) TestLogFormatter(c *C) {
+
+	for _, f := range []log.Formatter{&TextFormatter{}, &JSONFormatter{}} {
+		log.SetFormatter(f)
+
+		// check case with global Infof
+		buf := &bytes.Buffer{}
+		log.SetOutput(buf)
+		log.Infof("hello")
+		c.Assert(strings.TrimSpace(buf.String()), Matches, ".*trace_test.go.*")
+
+		// check case with embedded Infof
+		buf = &bytes.Buffer{}
+		log.SetOutput(buf)
+		log.WithFields(log.Fields{"a": "b"}).Infof("hello")
+		c.Assert(strings.TrimSpace(buf.String()), Matches, ".*trace_test.go.*")
+	}
 }
 
 type TestError struct {
