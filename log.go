@@ -24,6 +24,13 @@ import (
 	"runtime"
 )
 
+const (
+	// LineField is a field with code line added to structured traces
+	LineField = "line"
+	// FileField is a field with code file added to structured traces
+	FileField = "file"
+)
+
 // TextFormatter is logrus-compatible formatter, adding
 // file and line to every logged entry
 type TextFormatter struct {
@@ -34,8 +41,8 @@ type TextFormatter struct {
 func (tf *TextFormatter) Format(e *log.Entry) ([]byte, error) {
 	if frameNo := findFrame(); frameNo != -1 {
 		t := newTrace(runtime.Caller(frameNo - 1))
-		e.Data["file"] = t.File
-		e.Data["line"] = t.Line
+		e.Data[FileField] = t.File
+		e.Data[LineField] = t.Line
 	}
 	return (&tf.TextFormatter).Format(e)
 }
@@ -50,8 +57,8 @@ type JSONFormatter struct {
 func (j *JSONFormatter) Format(e *log.Entry) ([]byte, error) {
 	if frameNo := findFrame(); frameNo != -1 {
 		t := newTrace(runtime.Caller(frameNo - 1))
-		e.Data["file"] = t.File
-		e.Data["line"] = t.Line
+		e.Data[FileField] = t.File
+		e.Data[LineField] = t.Line
 	}
 	return (&j.JSONFormatter).Format(e)
 }
