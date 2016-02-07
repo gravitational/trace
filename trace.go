@@ -14,7 +14,8 @@ See the License for the specific language governing permissions and
 limitations under the License.
 */
 
-// Package trace implements utility function
+// Package trace implements utility functions for capturing debugging
+// information about file and line in error reports and logs.
 package trace
 
 import (

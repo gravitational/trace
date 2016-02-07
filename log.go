@@ -31,8 +31,8 @@ const (
 	FileField = "file"
 )
 
-// TextFormatter is logrus-compatible formatter, adding
-// file and line to every logged entry
+// TextFormatter is logrus-compatible formatter and adds
+// file and line details to every logged entry.
 type TextFormatter struct {
 	log.TextFormatter
 }
