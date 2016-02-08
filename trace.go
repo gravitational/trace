@@ -75,7 +75,6 @@ func newTrace(pc uintptr, filePath string, line int, ok bool) *TraceErr {
 		return &TraceErr{
 			nil,
 			Trace{
-				File: "unknown_file",
 				Path: "unknown_path",
 				Func: "unknown_func",
 				Line: 0,
@@ -86,7 +85,6 @@ func newTrace(pc uintptr, filePath string, line int, ok bool) *TraceErr {
 	return &TraceErr{
 		nil,
 		Trace{
-			File: filepath.Base(filePath),
 			Path: filePath,
 			Func: runtime.FuncForPC(pc).Name(),
 			Line: line,
@@ -117,8 +115,6 @@ func (s Traces) String() string {
 
 // Trace stores structured trace entry, including file line and path
 type Trace struct {
-	// File is a file name
-	File string `json:"file"`
 	// Path is a full file path
 	Path string `json:"path"`
 	// Func is a function name
@@ -129,7 +125,12 @@ type Trace struct {
 
 // String returns debug-friendly representation of this trace
 func (t *Trace) String() string {
-	return fmt.Sprintf("%v:%v", t.File, t.Line)
+	dir, file := filepath.Split(t.Path)
+	dirs := strings.Split(filepath.ToSlash(dir), "/")
+	if len(dirs) != 0 {
+		file = filepath.Join(dirs[len(dirs)-1], file)
+	}
+	return fmt.Sprintf("%v:%v", file, t.Line)
 }
 
 // TraceErr contains error message and some additional
@@ -141,7 +142,7 @@ type TraceErr struct {
 }
 
 func (e *TraceErr) Error() string {
-	return fmt.Sprintf("[%v:%v] %v %v", e.File, e.Line, e.Message, e.error)
+	return fmt.Sprintf("[%v] %v %v", e.String(), e.Message, e.error)
 }
 
 // OrigError returns original wrapped error
