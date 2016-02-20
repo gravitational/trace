@@ -11,9 +11,10 @@ import (
 )
 
 const (
-	// UDPDefaultAddr is a defu
+	// UDPDefaultAddr is a default address to emit logs to
 	UDPDefaultAddr = "127.0.0.1:5000"
-	UDPDefaultNet  = "udp"
+	// UDPDefaultNet is a default network
+	UDPDefaultNet = "udp"
 )
 
 // UDPOptionSetter represents functional arguments passed to ELKHook

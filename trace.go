@@ -126,7 +126,7 @@ type Trace struct {
 // String returns debug-friendly representation of this trace
 func (t *Trace) String() string {
 	dir, file := filepath.Split(t.Path)
-	dirs := strings.Split(filepath.ToSlash(dir), "/")
+	dirs := strings.Split(filepath.ToSlash(filepath.Clean(dir)), "/")
 	if len(dirs) != 0 {
 		file = filepath.Join(dirs[len(dirs)-1], file)
 	}
