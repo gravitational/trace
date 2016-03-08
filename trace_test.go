@@ -34,11 +34,19 @@ type TraceSuite struct {
 var _ = Suite(&TraceSuite{})
 
 func (s *TraceSuite) TestWrap(c *C) {
-	err := Wrap(Wrap(&TestError{Param: "param"}))
-	c.Assert(err, FitsTypeOf, &TestError{})
+	testErr := &TestError{Param: "param"}
+	err := Wrap(Wrap(testErr))
+	c.Assert(err, Equals, testErr)
+
 	t := err.(*TestError)
 	c.Assert(len(t.Traces), Equals, 2)
 	c.Assert(err.Error(), Matches, "*.trace_test.go.*")
+}
+
+func (s *TraceSuite) TestOrigError(c *C) {
+	testErr := fmt.Errorf("some error")
+	err := Wrap(Wrap(testErr))
+	c.Assert(err.OrigError(), Equals, testErr)
 }
 
 func (s *TraceSuite) TestWrapNil(c *C) {
