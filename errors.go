@@ -54,7 +54,7 @@ func (e *NotFoundError) OrigError() error {
 	return e
 }
 
-// IsNotFound returns whether this error indicates that the object is not found
+// IsNotFound returns whether this error is of NotFoundError type
 func IsNotFound(e error) bool {
 	type nf interface {
 		IsNotFoundError() bool
@@ -63,7 +63,7 @@ func IsNotFound(e error) bool {
 	return ok
 }
 
-// AlreadyExists returns new AlreadyExists error
+// AlreadyExists returns a new instance of AlreadyExists error
 func AlreadyExists(message string, args ...interface{}) error {
 	return wrap(&AlreadyExistsError{
 		Message: fmt.Sprintf(message, args...),
@@ -77,7 +77,7 @@ type AlreadyExistsError struct {
 	Message string `json:"message"`
 }
 
-// Error returns log-friendly error description
+// Error returns log friendly description of an error
 func (n *AlreadyExistsError) Error() string {
 	if n.Message != "" {
 		return n.Message
@@ -85,7 +85,7 @@ func (n *AlreadyExistsError) Error() string {
 	return "object already exists"
 }
 
-// IsAlreadyExistsError indicates that this error is of AlreadyExists kind
+// IsAlreadyExistsError indicates that this error of the AlreadyExistsError type
 func (AlreadyExistsError) IsAlreadyExistsError() bool {
 	return true
 }
@@ -95,7 +95,7 @@ func (e *AlreadyExistsError) OrigError() error {
 	return e
 }
 
-// IsAlreadyExists returns if this is error indicating that object
+// IsAlreadyExists returns whether this is error indicating that object
 // already exists
 func IsAlreadyExists(e error) bool {
 	type ae interface {
@@ -118,7 +118,7 @@ type BadParameterError struct {
 	Message string `json:"message"`
 }
 
-// Error returrns debug friendly message
+// Error returns log friendly description of an error
 func (b *BadParameterError) Error() string {
 	return b.Message
 }
@@ -128,12 +128,12 @@ func (b *BadParameterError) OrigError() error {
 	return b
 }
 
-// IsBadParameterError indicates that error is of bad parameter type
+// IsBadParameterError indicates that this error is of BadParameterError type
 func (b *BadParameterError) IsBadParameterError() bool {
 	return true
 }
 
-// IsBadParameter detects if this error is of BadParameter kind
+// IsBadParameter returns whether this error is of BadParameterType
 func IsBadParameter(e error) bool {
 	type bp interface {
 		IsBadParameterError() bool
@@ -142,12 +142,12 @@ func IsBadParameter(e error) bool {
 	return ok
 }
 
-// CompareFailed returns new instance of CompareFailed error
+// CompareFailed returns new instance of CompareFailedError
 func CompareFailed(message string, args ...interface{}) error {
 	return wrap(&CompareFailedError{Message: fmt.Sprintf(message, args...)}, 2)
 }
 
-// CompareFailedError indicates that compare failed (e.g wrong password or hash)
+// CompareFailedError indicates a failed comparison (e.g. bad password or hash)
 type CompareFailedError struct {
 	// Message is user-friendly error message
 	Message string `json:"message"`
@@ -166,12 +166,12 @@ func (e *CompareFailedError) OrigError() error {
 	return e
 }
 
-// IsCompareFailedError indicates that this is compare failed error
+// IsCompareFailedError indicates that this is CompareFailedError
 func (e *CompareFailedError) IsCompareFailedError() bool {
 	return true
 }
 
-// IsCompareFailed detects if this error is of CompareFailed kind
+// IsCompareFailed detects if this error is of CompareFailed type
 func IsCompareFailed(e error) bool {
 	type cf interface {
 		IsCompareFailedError() bool
@@ -180,7 +180,7 @@ func IsCompareFailed(e error) bool {
 	return ok
 }
 
-// AccessDenied returns new access denied error
+// AccessDenied returns new instance of AccessDeniedError
 func AccessDenied(message string, args ...interface{}) error {
 	return wrap(&AccessDeniedError{
 		Message: fmt.Sprintf(message, args...),
@@ -200,7 +200,7 @@ func (e *AccessDeniedError) Error() string {
 	return "access denied"
 }
 
-// IsAccessDeniedError indicates that this error is of AccessDenied type
+// IsAccessDeniedError indicates that this error is of AccessDeniedError type
 func (e *AccessDeniedError) IsAccessDeniedError() bool {
 	return true
 }
@@ -210,7 +210,7 @@ func (e *AccessDeniedError) OrigError() error {
 	return e
 }
 
-// IsAccessDenied detects if this error is of AccessDeniedError
+// IsAccessDenied detects if this error is of AccessDeniedError type
 func IsAccessDenied(e error) bool {
 	type ad interface {
 		IsAccessDeniedError() bool
@@ -219,7 +219,7 @@ func IsAccessDenied(e error) bool {
 	return ok
 }
 
-// ConvertSystemError converts system error to appropriate teleport error
+// ConvertSystemError converts system error to appropriate trace error
 // if it is possible, otherwise, returns original error
 func ConvertSystemError(err error) error {
 	innerError := Unwrap(err)
@@ -246,7 +246,7 @@ func ConvertSystemError(err error) error {
 	}
 }
 
-// ConnectionProblem returns ConnectionProblem
+// ConnectionProblem returns new instance of ConnectionProblemError
 func ConnectionProblem(err error, message string, args ...interface{}) error {
 	return wrap(&ConnectionProblemError{
 		Message: fmt.Sprintf(message, args...),
@@ -254,7 +254,7 @@ func ConnectionProblem(err error, message string, args ...interface{}) error {
 	}, 2)
 }
 
-// ConnectionProblemError indicates any network error that has occured
+// ConnectionProblemError indicates a network related problem
 type ConnectionProblemError struct {
 	Message string `json:"message"`
 	Err     error  `json:"-"`
@@ -265,7 +265,7 @@ func (c *ConnectionProblemError) Error() string {
 	return fmt.Sprintf("%v: %v", c.Message, c.Err)
 }
 
-// IsConnectionProblemError indicates that this error is of ConnectionProblem
+// IsConnectionProblemError indicates that this error is of ConnectionProblemError type
 func (c *ConnectionProblemError) IsConnectionProblemError() bool {
 	return true
 }
@@ -275,7 +275,7 @@ func (c *ConnectionProblemError) OrigError() error {
 	return c
 }
 
-// IsConnectionProblem detects if this error is of ConnectionProblemError
+// IsConnectionProblem returns whether this error is of ConnectionProblemError
 func IsConnectionProblem(e error) bool {
 	type ad interface {
 		IsConnectionProblemError() bool
@@ -284,7 +284,7 @@ func IsConnectionProblem(e error) bool {
 	return ok
 }
 
-// LimitExceeded returns new limit exceeded error
+// LimitExceeded returns whether new instance of LimitExceededError
 func LimitExceeded(message string, args ...interface{}) error {
 	return wrap(&LimitExceededError{
 		Message: fmt.Sprintf(message, args...),
@@ -320,7 +320,7 @@ func IsLimitExceeded(e error) bool {
 	return ok
 }
 
-// TrustError means that we can not trust remote party
+// TrustError indicates trust-related validation error (e.g. untrusted cert)
 type TrustError struct {
 	// Err is original error
 	Err     error `json:"error"`
@@ -332,7 +332,7 @@ func (t *TrustError) Error() string {
 	return t.Err.Error()
 }
 
-// IsTrustError indicates that this error is of trust error kind
+// IsTrustError indicates that this error is of TrustError type
 func (*TrustError) IsTrustError() bool {
 	return true
 }
@@ -351,7 +351,7 @@ func IsTrustError(e error) bool {
 	return ok
 }
 
-// OAuth2 returns OAuth2 related error
+// OAuth2 returns new instance of OAuth2Error
 func OAuth2(code, message string, query url.Values) Error {
 	return wrap(&OAuth2Error{
 		Code:    code,
@@ -360,20 +360,19 @@ func OAuth2(code, message string, query url.Values) Error {
 	}, 2)
 }
 
-// OAuth2Error is error returned during OAuth2 authentication
-// currently used in OIDC (OpenID Connect flow)
+// OAuth2Error defined an error used in OpenID Connect Flow (OIDC)
 type OAuth2Error struct {
 	Code    string     `json:"code"`
 	Message string     `json:"message"`
 	Query   url.Values `json:"query"`
 }
 
-// Error returns debug friendly error message
+//Error returns log friendly description of an error
 func (o *OAuth2Error) Error() string {
 	return fmt.Sprintf("OAuth2 error code=%v, message=%v", o.Code, o.Message)
 }
 
-// IsOAuth2Error indicates that this error of OAuth2 type
+// IsOAuth2Error returns whether this error of OAuth2Error type
 func (o *OAuth2Error) IsOAuth2Error() bool {
 	return true
 }
