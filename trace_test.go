@@ -13,11 +13,13 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 */
+
 package trace
 
 import (
 	"bytes"
 	"fmt"
+	"net/http"
 	"strings"
 	"testing"
 
@@ -82,6 +84,76 @@ func (s *TraceSuite) TestLogFormatter(c *C) {
 	}
 }
 
+func (s *TraceSuite) TestGenericErrors(c *C) {
+	testCases := []struct {
+		Err        error
+		Predicate  func(error) bool
+		StatusCode int
+	}{
+		{
+			Err:        NotFound("not found"),
+			Predicate:  IsNotFound,
+			StatusCode: http.StatusNotFound,
+		},
+		{
+			Err:        AlreadyExists("already exists"),
+			Predicate:  IsAlreadyExists,
+			StatusCode: http.StatusConflict,
+		},
+		{
+			Err:        BadParameter("is bad"),
+			Predicate:  IsBadParameter,
+			StatusCode: http.StatusBadRequest,
+		},
+		{
+			Err:        CompareFailed("is bad"),
+			Predicate:  IsCompareFailed,
+			StatusCode: http.StatusPreconditionFailed,
+		},
+		{
+			Err:        AccessDenied("denied"),
+			Predicate:  IsAccessDenied,
+			StatusCode: http.StatusForbidden,
+		},
+		{
+			Err:        ConnectionProblem(nil, "prob"),
+			Predicate:  IsConnectionProblem,
+			StatusCode: http.StatusRequestTimeout,
+		},
+		{
+			Err:        LimitExceeded("limit exceeded"),
+			Predicate:  IsLimitExceeded,
+			StatusCode: statusTooManyRequests,
+		},
+	}
+
+	for i, testCase := range testCases {
+		comment := Commentf("test case #%v", i+1)
+		SetDebug(true)
+		err := testCase.Err
+
+		t := err.(*TraceErr)
+		c.Assert(len(t.Traces), Equals, 1, comment)
+		c.Assert(err.Error(), Matches, "*.trace_test.go.*", comment)
+		c.Assert(testCase.Predicate(err), Equals, true, comment)
+
+		w := newTestWriter()
+		WriteError(w, err)
+		outerr := ReadError(w.StatusCode, w.Body)
+		c.Assert(testCase.Predicate(outerr), Equals, true, comment)
+		t = outerr.(*TraceErr)
+		c.Assert(len(t.Traces), Equals, 2, comment)
+
+		SetDebug(false)
+		w = newTestWriter()
+		WriteError(w, err)
+		outerr = ReadError(w.StatusCode, w.Body)
+		c.Assert(testCase.Predicate(outerr), Equals, true, comment)
+		t = outerr.(*TraceErr)
+		c.Assert(len(t.Traces), Equals, 1, comment)
+	}
+}
+
 type TestError struct {
 	Traces
 	Param string
@@ -93,4 +165,29 @@ func (n *TestError) Error() string {
 
 func (n *TestError) OrigError() error {
 	return n
+}
+
+func newTestWriter() *testWriter {
+	return &testWriter{
+		H: make(http.Header),
+	}
+}
+
+type testWriter struct {
+	H          http.Header
+	Body       []byte
+	StatusCode int
+}
+
+func (tw *testWriter) Header() http.Header {
+	return tw.H
+}
+
+func (tw *testWriter) Write(body []byte) (int, error) {
+	tw.Body = body
+	return len(tw.Body), nil
+}
+
+func (tw *testWriter) WriteHeader(code int) {
+	tw.StatusCode = code
 }
