@@ -80,8 +80,7 @@ func replyJSON(w http.ResponseWriter, code int, err error) {
 	if IsDebug() {
 		// trace error can marshal itself,
 		// otherwise capture error message and marshal it explicitly
-		var obj interface{}
-		obj = err
+		var obj interface{} = err
 		if _, ok := err.(*TraceErr); !ok {
 			obj = message{Message: err.Error()}
 		}

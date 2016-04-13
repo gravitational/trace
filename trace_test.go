@@ -164,7 +164,7 @@ func (s *TraceSuite) TestWriteExternalErrors(c *C) {
 	c.Assert(w.StatusCode, Equals, http.StatusInternalServerError)
 	c.Assert(strings.Replace(string(w.Body), "\n", "", -1), Matches, "*.snap.*")
 
-	SetDebug(true)
+	SetDebug(false)
 	w = newTestWriter()
 	WriteError(w, err)
 	c.Assert(w.StatusCode, Equals, http.StatusInternalServerError)
