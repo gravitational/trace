@@ -42,13 +42,27 @@ func (s *TraceSuite) TestWrap(c *C) {
 
 	t := err.(*TestError)
 	c.Assert(len(t.Traces), Equals, 2)
-	c.Assert(err.Error(), Matches, "*.trace_test.go.*")
+	c.Assert(err.Error(), Matches, ".*trace_test.go.*")
 }
 
 func (s *TraceSuite) TestOrigError(c *C) {
 	testErr := fmt.Errorf("some error")
 	err := Wrap(Wrap(testErr))
 	c.Assert(err.OrigError(), Equals, testErr)
+}
+
+func (s *TraceSuite) TestWrapMessage(c *C) {
+	testErr := fmt.Errorf("description")
+
+	err := Wrap(testErr)
+
+	SetDebug(true)
+	c.Assert(err.Error(), Matches, ".*trace_test.go.*")
+	c.Assert(err.Error(), Matches, ".*description.*")
+
+	SetDebug(false)
+	c.Assert(err.Error(), Not(Matches), "*.trace_test.go.*")
+	c.Assert(err.Error(), Matches, ".*description.*")
 }
 
 func (s *TraceSuite) TestWrapNil(c *C) {
