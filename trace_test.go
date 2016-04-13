@@ -154,6 +154,23 @@ func (s *TraceSuite) TestGenericErrors(c *C) {
 	}
 }
 
+// Make sure we write some output produced by standard errors
+func (s *TraceSuite) TestWriteExternalErrors(c *C) {
+	err := fmt.Errorf("snap!")
+
+	SetDebug(true)
+	w := newTestWriter()
+	WriteError(w, err)
+	c.Assert(w.StatusCode, Equals, http.StatusInternalServerError)
+	c.Assert(strings.Replace(string(w.Body), "\n", "", -1), Matches, "*.snap.*")
+
+	SetDebug(true)
+	w = newTestWriter()
+	WriteError(w, err)
+	c.Assert(w.StatusCode, Equals, http.StatusInternalServerError)
+	c.Assert(strings.Replace(string(w.Body), "\n", "", -1), Matches, "*.snap.*")
+}
+
 type TestError struct {
 	Traces
 	Param string
