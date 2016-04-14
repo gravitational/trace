@@ -61,7 +61,7 @@ func (s *TraceSuite) TestWrapMessage(c *C) {
 	c.Assert(err.Error(), Matches, ".*description.*")
 
 	SetDebug(false)
-	c.Assert(err.Error(), Not(Matches), "*.trace_test.go.*")
+	c.Assert(err.Error(), Not(Matches), ".*trace_test.go.*")
 	c.Assert(err.Error(), Matches, ".*description.*")
 }
 
