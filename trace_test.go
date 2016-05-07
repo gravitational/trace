@@ -20,6 +20,7 @@ import (
 	"bytes"
 	"fmt"
 	"net/http"
+	"os"
 	"strings"
 	"testing"
 
@@ -77,6 +78,10 @@ func (s *TraceSuite) TestWrapNil(c *C) {
 
 	err4 := Wrap(err3)
 	c.Assert(err4, IsNil)
+}
+
+func (s *TraceSuite) TestWrapStdlibErrors(c *C) {
+	c.Assert(IsNotFound(os.ErrNotExist), Equals, true)
 }
 
 func (s *TraceSuite) TestLogFormatter(c *C) {
