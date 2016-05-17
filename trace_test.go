@@ -190,6 +190,66 @@ func (s *TraceSuite) TestWriteExternalErrors(c *C) {
 	c.Assert(strings.Replace(string(w.Body), "\n", "", -1), Matches, "*.snap.*")
 }
 
+func (s *TraceSuite) TestAggregates(c *C) {
+	err1 := Errorf("failed one")
+	err2 := Errorf("failed two")
+	err := NewAggregate(err1, err2)
+	c.Assert(IsAggregate(err), Equals, true)
+	agg := Unwrap(err).(Aggregate)
+	c.Assert(agg.Errors(), DeepEquals, []error{err1, err2})
+	c.Assert(err.Error(), DeepEquals, "failed one, failed two")
+}
+
+func (s *TraceSuite) TestAggregateConvertsToCommonErrors(c *C) {
+	testCases := []struct {
+		Err                error
+		Predicate          func(error) bool
+		RoundtripPredicate func(error) bool
+		StatusCode         int
+	}{
+		{
+			// Aggregate unwraps to first aggregated error
+			Err: NewAggregate(BadParameter("invalid value of foo"),
+				LimitExceeded("limit exceeded")),
+			Predicate:          IsAggregate,
+			RoundtripPredicate: IsBadParameter,
+			StatusCode:         http.StatusBadRequest,
+		},
+		{
+			// Nested aggregate unwraps recursively
+			Err: NewAggregate(NewAggregate(BadParameter("invalid value of foo"),
+				LimitExceeded("limit exceeded"))),
+			Predicate:          IsAggregate,
+			RoundtripPredicate: IsBadParameter,
+			StatusCode:         http.StatusBadRequest,
+		},
+	}
+	for i, testCase := range testCases {
+		comment := Commentf("test case #%v", i+1)
+		SetDebug(true)
+		err := testCase.Err
+
+		c.Assert(err.Error(), Matches, "*.trace_test.go.*", comment)
+		c.Assert(testCase.Predicate(err), Equals, true, comment)
+
+		w := newTestWriter()
+		WriteError(w, err)
+		outerr := ReadError(w.StatusCode, w.Body)
+		c.Assert(testCase.RoundtripPredicate(outerr), Equals, true, comment)
+
+		t := outerr.(*TraceErr)
+		c.Assert(len(t.Traces), Equals, 2, comment)
+
+		SetDebug(false)
+		w = newTestWriter()
+		WriteError(w, err)
+		outerr = ReadError(w.StatusCode, w.Body)
+		c.Assert(testCase.RoundtripPredicate(outerr), Equals, true, comment)
+		t = outerr.(*TraceErr)
+		c.Assert(len(t.Traces), Equals, 1, comment)
+	}
+}
+
 type TestError struct {
 	Traces
 	Param string

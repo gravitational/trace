@@ -2,6 +2,7 @@ package trace
 
 import (
 	"encoding/json"
+	"fmt"
 	"net/http"
 )
 
@@ -10,8 +11,26 @@ const (
 	statusTrustError      = 504
 )
 
-// WriteError sets up http error response and writes it to writer w
+// WriteError sets up HTTP error response and writes it to writer w
 func WriteError(w http.ResponseWriter, err error) {
+	if IsAggregate(err) {
+		for i := 0; i < maxHops; i++ {
+			var aggErr Aggregate
+			var ok bool
+			if aggErr, ok = Unwrap(err).(Aggregate); !ok {
+				break
+			}
+			errors := aggErr.Errors()
+			if len(errors) == 0 {
+				break
+			}
+			err = errors[0]
+		}
+	}
+	writeError(w, err)
+}
+
+func writeError(w http.ResponseWriter, err error) {
 	if IsNotFound(err) {
 		replyJSON(
 			w, http.StatusNotFound, err)
@@ -86,7 +105,7 @@ func replyJSON(w http.ResponseWriter, code int, err error) {
 		}
 		out, err = json.MarshalIndent(obj, "", "    ")
 		if err != nil {
-			out = []byte(`{"message": "internal marshal error"}`)
+			out = []byte(fmt.Sprintf(`{"message": "internal marshal error: %v"}`, err))
 		}
 	} else {
 		innerError := err
