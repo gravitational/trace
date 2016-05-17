@@ -227,11 +227,11 @@ type TraceSetter interface {
 
 // NewAggregate creates a new aggregate instance from the specified
 // list of errors
-func NewAggregate(errs []error) Aggregate {
+func NewAggregate(errs ...error) error {
 	if len(errs) == 0 {
 		return nil
 	}
-	return aggregate(errs)
+	return wrap(aggregate(errs), 2)
 }
 
 // Aggregate interface combines several errors into one error
@@ -259,4 +259,10 @@ func (r aggregate) Error() string {
 // Errors obtains the list of errors this aggregate combines
 func (r aggregate) Errors() []error {
 	return []error(r)
+}
+
+// IsAggregate returns whether this error of Aggregate error type
+func IsAggregate(err error) bool {
+	_, ok := Unwrap(err).(Aggregate)
+	return ok
 }
