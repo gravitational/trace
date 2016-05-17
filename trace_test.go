@@ -185,6 +185,14 @@ func (s *TraceSuite) TestWriteExternalErrors(c *C) {
 	c.Assert(strings.Replace(string(w.Body), "\n", "", -1), Matches, "*.snap.*")
 }
 
+func (s *TraceSuite) TestAggregates(c *C) {
+	err1 := Errorf("failed one")
+	err2 := Errorf("failed two")
+	agg := NewAggregate([]error{err1, err2})
+	c.Assert(agg.Errors(), DeepEquals, []error{err1, err2})
+	c.Assert(agg.Error(), DeepEquals, "failed one, failed two")
+}
+
 type TestError struct {
 	Traces
 	Param string
