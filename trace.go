@@ -230,15 +230,15 @@ type TraceSetter interface {
 // NewAggregate creates a new aggregate instance from the specified
 // list of errors
 func NewAggregate(errs ...error) error {
-	if len(errs) == 0 {
-		return nil
-	}
 	// filter out possible nil values
 	var nonNils []error
 	for _, err := range errs {
 		if err != nil {
 			nonNils = append(nonNils, err)
 		}
+	}
+	if len(nonNils) == 0 {
+		return nil
 	}
 	return wrap(aggregate(nonNils), 2)
 }
