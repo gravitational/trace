@@ -25,6 +25,8 @@ import (
 	"runtime"
 	"strings"
 	"sync/atomic"
+
+	"golang.org/x/net/context"
 )
 
 var debug int32
@@ -231,7 +233,38 @@ func NewAggregate(errs ...error) error {
 	if len(errs) == 0 {
 		return nil
 	}
-	return wrap(aggregate(errs), 2)
+	// filter out possible nil values
+	var nonNils []error
+	for _, err := range errs {
+		if err != nil {
+			nonNils = append(nonNils, err)
+		}
+	}
+	return wrap(aggregate(nonNils), 2)
+}
+
+// NewAggregateFromChannel creates a new aggregate instance from the provided
+// errors channel.
+//
+// A context.Context can be passed in so the caller has the ability to cancel
+// the operation. If this is not desired, simply pass context.Background().
+func NewAggregateFromChannel(errCh chan error, ctx context.Context) error {
+	var errs []error
+
+Loop:
+	for {
+		select {
+		case err, ok := <-errCh:
+			if !ok { // the channel is closed, time to exit
+				break Loop
+			}
+			errs = append(errs, err)
+		case <-ctx.Done():
+			break Loop
+		}
+	}
+
+	return NewAggregate(errs...)
 }
 
 // Aggregate interface combines several errors into one error
