@@ -234,6 +234,21 @@ func NewAggregate(errs ...error) error {
 	return wrap(aggregate(errs), 2)
 }
 
+// NewAggregateFromChannel creates a new aggregate instance from the provided
+// errors channel.
+//
+// It is the caller's responsibility to close the channel, otherwise this
+// function might block!
+func NewAggregateFromChannel(errCh chan error) error {
+	var errs []error
+	for err := range errCh {
+		if err != nil {
+			errs = append(errs, err)
+		}
+	}
+	return NewAggregate(errs...)
+}
+
 // Aggregate interface combines several errors into one error
 type Aggregate interface {
 	error

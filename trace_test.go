@@ -250,6 +250,18 @@ func (s *TraceSuite) TestAggregateConvertsToCommonErrors(c *C) {
 	}
 }
 
+func (s *TraceSuite) TestAggregateFromChannel(c *C) {
+	errCh := make(chan error, 3)
+	errCh <- fmt.Errorf("Snap!")
+	errCh <- fmt.Errorf("BAM")
+	errCh <- fmt.Errorf("omg")
+	close(errCh)
+	err := NewAggregateFromChannel(errCh)
+	c.Assert(err.Error(), Matches, ".*Snap!.*")
+	c.Assert(err.Error(), Matches, ".*BAM.*")
+	c.Assert(err.Error(), Matches, ".*omg.*")
+}
+
 type TestError struct {
 	Traces
 	Param string
