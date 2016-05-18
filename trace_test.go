@@ -26,6 +26,7 @@ import (
 
 	log "github.com/Sirupsen/logrus"
 
+	"golang.org/x/net/context"
 	. "gopkg.in/check.v1"
 )
 
@@ -250,16 +251,33 @@ func (s *TraceSuite) TestAggregateConvertsToCommonErrors(c *C) {
 	}
 }
 
+func (s *TraceSuite) TestAggregateNils(c *C) {
+	err := NewAggregate(fmt.Errorf("error1"), nil, fmt.Errorf("error2"))
+	c.Assert(err.Error(), Not(Matches), ".*nil.*")
+}
+
 func (s *TraceSuite) TestAggregateFromChannel(c *C) {
 	errCh := make(chan error, 3)
 	errCh <- fmt.Errorf("Snap!")
 	errCh <- fmt.Errorf("BAM")
 	errCh <- fmt.Errorf("omg")
 	close(errCh)
-	err := NewAggregateFromChannel(errCh)
+	err := NewAggregateFromChannel(errCh, context.Background())
 	c.Assert(err.Error(), Matches, ".*Snap!.*")
 	c.Assert(err.Error(), Matches, ".*BAM.*")
 	c.Assert(err.Error(), Matches, ".*omg.*")
+}
+
+func (s *TraceSuite) TestAggregateFromChannelCancel(c *C) {
+	errCh := make(chan error, 3)
+	errCh <- fmt.Errorf("Snap!")
+	errCh <- fmt.Errorf("BAM")
+	errCh <- fmt.Errorf("omg")
+	ctx, cancel := context.WithCancel(context.Background())
+	// we never closed the channel so we just need to make sure
+	// the function exits when we cancel it
+	cancel()
+	NewAggregateFromChannel(errCh, ctx)
 }
 
 type TestError struct {
