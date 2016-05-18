@@ -251,9 +251,13 @@ func (s *TraceSuite) TestAggregateConvertsToCommonErrors(c *C) {
 	}
 }
 
-func (s *TraceSuite) TestAggregateNils(c *C) {
+func (s *TraceSuite) TestAggregateThrowAwayNils(c *C) {
 	err := NewAggregate(fmt.Errorf("error1"), nil, fmt.Errorf("error2"))
 	c.Assert(err.Error(), Not(Matches), ".*nil.*")
+}
+
+func (s *TraceSuite) TestAggregateAllNils(c *C) {
+	c.Assert(NewAggregate(nil, nil, nil), IsNil)
 }
 
 func (s *TraceSuite) TestAggregateFromChannel(c *C) {
