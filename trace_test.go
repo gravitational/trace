@@ -37,6 +37,11 @@ type TraceSuite struct {
 
 var _ = Suite(&TraceSuite{})
 
+func (s *TraceSuite) TestEmpty(c *C) {
+	c.Assert(DebugReport(nil), Equals, "")
+	c.Assert(UserMessage(nil), Equals, "")
+}
+
 func (s *TraceSuite) TestWrap(c *C) {
 	testErr := &TestError{Param: "param"}
 	err := Wrap(Wrap(testErr))

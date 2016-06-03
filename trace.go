@@ -61,6 +61,9 @@ func Unwrap(err error) error {
 
 // UserMessage returns user-friendly part of the error
 func UserMessage(err error) string {
+	if err == nil {
+		return ""
+	}
 	if wrap, ok := err.(Error); ok {
 		return wrap.UserMessage()
 	}
@@ -70,6 +73,9 @@ func UserMessage(err error) string {
 // DebugReport returns debug report with all known information
 // about the error including stack trace if it was captured
 func DebugReport(err error) string {
+	if err == nil {
+		return ""
+	}
 	if wrap, ok := err.(Error); ok {
 		return wrap.DebugReport()
 	}
