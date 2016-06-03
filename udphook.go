@@ -3,7 +3,6 @@ package trace
 import (
 	"encoding/json"
 	"net"
-	"runtime"
 	"time"
 
 	log "github.com/Sirupsen/logrus"
@@ -67,7 +66,7 @@ type Frame struct {
 // Fire fires the event to the ELK beat
 func (elk *UDPHook) Fire(e *log.Entry) error {
 	if frameNo := findFrame(); frameNo != -1 {
-		t := newTrace(runtime.Caller(frameNo - 1))
+		t := newTrace(frameNo-1, nil)
 		e.Data[FileField] = t.String()
 		e.Data[FunctionField] = t.Func()
 	}
