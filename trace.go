@@ -90,7 +90,7 @@ func wrap(err error, depth int, args ...interface{}) Error {
 	if wrap, ok := err.(Error); ok {
 		wrapper = wrap
 	} else {
-		wrapper = newTrace(depth, err)
+		wrapper = newTrace(depth+1, err)
 	}
 	if len(args) != 0 {
 		wrapper.AddUserMessage(args[0], args[1:]...)
@@ -152,6 +152,27 @@ func (s *Traces) Func() string {
 	return (*s)[0].Func
 }
 
+// Func returns just function name
+func (s *Traces) FuncName() string {
+	if len(*s) == 0 {
+		return ""
+	}
+	fn := filepath.ToSlash((*s)[0].Func)
+	idx := strings.LastIndex(fn, "/")
+	if idx == -1 || idx == len(fn)-1 {
+		return fn
+	}
+	return fn[idx+1:]
+}
+
+// Loc points to file/line location in the code
+func (s *Traces) Loc() string {
+	if len(*s) == 0 {
+		return ""
+	}
+	return (*s)[0].String()
+}
+
 // String returns debug-friendly representaton of trace stack
 func (s Traces) String() string {
 	if len(s) == 0 {
@@ -159,7 +180,7 @@ func (s Traces) String() string {
 	}
 	out := make([]string, len(s))
 	for i, t := range s {
-		out[i] = t.String()
+		out[i] = fmt.Sprintf("\t%v:%v %v", t.Path, t.Line, t.Func)
 	}
 	return strings.Join(out, "\n")
 }
@@ -218,7 +239,7 @@ func (e *TraceErr) UserMessage() string {
 
 // DebugReport returns develeoper-friendly error report
 func (e *TraceErr) DebugReport() string {
-	return fmt.Sprintf("ERROR REPORT:\nOriginal Error:%v\nStack Trace:\n%v\n%v", e.Err.Error(), e.Traces.String(), e.Message)
+	return fmt.Sprintf("\nERROR REPORT:\nOriginal Error: %T %v\nStack Trace:\n%v\nUser Message: %v\n", e.Err, e.Err.Error(), e.Traces.String(), e.Message)
 }
 
 // Error returns user-friendly error message when not in debug mode

@@ -182,8 +182,6 @@ func (s *TraceSuite) TestGenericErrors(c *C) {
 		WriteError(w, err)
 		outerr = ReadError(w.StatusCode, w.Body)
 		c.Assert(testCase.Predicate(outerr), Equals, true, comment)
-		t = outerr.(*TraceErr)
-		c.Assert(len(t.Traces), Not(Equals), 0, comment)
 	}
 }
 
@@ -259,8 +257,6 @@ func (s *TraceSuite) TestAggregateConvertsToCommonErrors(c *C) {
 		WriteError(w, err)
 		outerr = ReadError(w.StatusCode, w.Body)
 		c.Assert(testCase.RoundtripPredicate(outerr), Equals, true, comment)
-		t = outerr.(*TraceErr)
-		c.Assert(len(t.Traces), Not(Equals), 0, comment)
 	}
 }
 

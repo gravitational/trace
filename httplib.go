@@ -65,25 +65,25 @@ func ReadError(statusCode int, re []byte) error {
 	switch statusCode {
 	case http.StatusNotFound:
 		e := NotFoundError{}
-		return Wrap(unmarshalError(&e, re))
+		return unmarshalError(&e, re)
 	case http.StatusBadRequest:
 		e := BadParameterError{}
-		return Wrap(unmarshalError(&e, re))
+		return unmarshalError(&e, re)
 	case http.StatusPreconditionFailed:
 		e := CompareFailedError{}
-		return Wrap(unmarshalError(&e, re))
+		return unmarshalError(&e, re)
 	case http.StatusForbidden:
 		e := AccessDeniedError{}
-		return Wrap(unmarshalError(&e, re))
+		return unmarshalError(&e, re)
 	case http.StatusConflict:
 		e := AlreadyExistsError{}
-		return Wrap(unmarshalError(&e, re))
+		return unmarshalError(&e, re)
 	case statusTooManyRequests:
 		e := LimitExceededError{}
-		return Wrap(unmarshalError(&e, re))
+		return unmarshalError(&e, re)
 	case http.StatusGatewayTimeout:
 		e := ConnectionProblemError{}
-		return Wrap(unmarshalError(&e, re))
+		return unmarshalError(&e, re)
 	}
 	if statusCode < 200 || statusCode > 299 {
 		return Errorf(string(re))
@@ -137,7 +137,6 @@ func unmarshalError(err error, responseBody []byte) error {
 		}
 		return &TraceErr{Traces: raw.Traces, Err: err, Message: raw.Message}
 	}
-	// try to capture traces, if there are any
 	json.Unmarshal(responseBody, err)
 	return err
 }
