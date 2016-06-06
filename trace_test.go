@@ -37,14 +37,17 @@ type TraceSuite struct {
 
 var _ = Suite(&TraceSuite{})
 
+func (s *TraceSuite) TestEmpty(c *C) {
+	c.Assert(DebugReport(nil), Equals, "")
+	c.Assert(UserMessage(nil), Equals, "")
+}
+
 func (s *TraceSuite) TestWrap(c *C) {
 	testErr := &TestError{Param: "param"}
 	err := Wrap(Wrap(testErr))
-	c.Assert(err, Equals, testErr)
 
-	t := err.(*TestError)
-	c.Assert(len(t.Traces), Equals, 2)
-	c.Assert(err.Error(), Matches, ".*trace_test.go.*")
+	c.Assert(line(DebugReport(err)), Matches, ".*trace_test.go.*")
+	c.Assert(line(UserMessage(err)), Not(Matches), ".*trace_test.go.*")
 }
 
 func (s *TraceSuite) TestOrigError(c *C) {
@@ -59,12 +62,22 @@ func (s *TraceSuite) TestWrapMessage(c *C) {
 	err := Wrap(testErr)
 
 	SetDebug(true)
-	c.Assert(err.Error(), Matches, ".*trace_test.go.*")
-	c.Assert(err.Error(), Matches, ".*description.*")
+	c.Assert(line(err.Error()), Matches, ".*trace_test.go.*")
+	c.Assert(line(err.Error()), Matches, ".*description.*")
 
 	SetDebug(false)
-	c.Assert(err.Error(), Not(Matches), ".*trace_test.go.*")
-	c.Assert(err.Error(), Matches, ".*description.*")
+	c.Assert(line(err.Error()), Not(Matches), ".*trace_test.go.*")
+	c.Assert(line(err.Error()), Matches, ".*description.*")
+}
+
+func (s *TraceSuite) TestWrapUserMessage(c *C) {
+	testErr := fmt.Errorf("description")
+
+	err := Wrap(testErr, "user message")
+	c.Assert(line(UserMessage(err)), Equals, "user message")
+
+	err = Wrap(err, "user message 2")
+	c.Assert(line(UserMessage(err)), Equals, "user message, user message 2")
 }
 
 func (s *TraceSuite) TestWrapNil(c *C) {
@@ -94,13 +107,13 @@ func (s *TraceSuite) TestLogFormatter(c *C) {
 		buf := &bytes.Buffer{}
 		log.SetOutput(buf)
 		log.Infof("hello")
-		c.Assert(strings.TrimSpace(buf.String()), Matches, ".*trace_test.go.*")
+		c.Assert(line(buf.String()), Matches, ".*trace_test.go.*")
 
 		// check case with embedded Infof
 		buf = &bytes.Buffer{}
 		log.SetOutput(buf)
 		log.WithFields(log.Fields{"a": "b"}).Infof("hello")
-		c.Assert(strings.TrimSpace(buf.String()), Matches, ".*trace_test.go.*")
+		c.Assert(line(buf.String()), Matches, ".*trace_test.go.*")
 	}
 }
 
@@ -153,8 +166,8 @@ func (s *TraceSuite) TestGenericErrors(c *C) {
 		err := testCase.Err
 
 		t := err.(*TraceErr)
-		c.Assert(len(t.Traces), Equals, 1, comment)
-		c.Assert(err.Error(), Matches, "*.trace_test.go.*", comment)
+		c.Assert(len(t.Traces), Not(Equals), 0, comment)
+		c.Assert(line(err.Error()), Matches, "*.trace_test.go.*", comment)
 		c.Assert(testCase.Predicate(err), Equals, true, comment)
 
 		w := newTestWriter()
@@ -162,15 +175,13 @@ func (s *TraceSuite) TestGenericErrors(c *C) {
 		outerr := ReadError(w.StatusCode, w.Body)
 		c.Assert(testCase.Predicate(outerr), Equals, true, comment)
 		t = outerr.(*TraceErr)
-		c.Assert(len(t.Traces), Equals, 2, comment)
+		c.Assert(len(t.Traces), Not(Equals), 0, comment)
 
 		SetDebug(false)
 		w = newTestWriter()
 		WriteError(w, err)
 		outerr = ReadError(w.StatusCode, w.Body)
 		c.Assert(testCase.Predicate(outerr), Equals, true, comment)
-		t = outerr.(*TraceErr)
-		c.Assert(len(t.Traces), Equals, 1, comment)
 	}
 }
 
@@ -199,6 +210,12 @@ func (s *TraceSuite) TestAggregates(c *C) {
 	agg := Unwrap(err).(Aggregate)
 	c.Assert(agg.Errors(), DeepEquals, []error{err1, err2})
 	c.Assert(err.Error(), DeepEquals, "failed one, failed two")
+}
+
+func (s *TraceSuite) TestErrorf(c *C) {
+	err := Errorf("error")
+	c.Assert(line(DebugReport(err)), Matches, "*.trace_test.go.*")
+	c.Assert(line(UserMessage(err)), Equals, "error")
 }
 
 func (s *TraceSuite) TestAggregateConvertsToCommonErrors(c *C) {
@@ -230,7 +247,7 @@ func (s *TraceSuite) TestAggregateConvertsToCommonErrors(c *C) {
 		SetDebug(true)
 		err := testCase.Err
 
-		c.Assert(err.Error(), Matches, "*.trace_test.go.*", comment)
+		c.Assert(line(err.Error()), Matches, "*.trace_test.go.*", comment)
 		c.Assert(testCase.Predicate(err), Equals, true, comment)
 
 		w := newTestWriter()
@@ -239,15 +256,13 @@ func (s *TraceSuite) TestAggregateConvertsToCommonErrors(c *C) {
 		c.Assert(testCase.RoundtripPredicate(outerr), Equals, true, comment)
 
 		t := outerr.(*TraceErr)
-		c.Assert(len(t.Traces), Equals, 2, comment)
+		c.Assert(len(t.Traces), Not(Equals), 0, comment)
 
 		SetDebug(false)
 		w = newTestWriter()
 		WriteError(w, err)
 		outerr = ReadError(w.StatusCode, w.Body)
 		c.Assert(testCase.RoundtripPredicate(outerr), Equals, true, comment)
-		t = outerr.(*TraceErr)
-		c.Assert(len(t.Traces), Equals, 1, comment)
 	}
 }
 
@@ -320,4 +335,8 @@ func (tw *testWriter) Write(body []byte) (int, error) {
 
 func (tw *testWriter) WriteHeader(code int) {
 	tw.StatusCode = code
+}
+
+func line(s string) string {
+	return strings.Replace(s, "\n", "", -1)
 }

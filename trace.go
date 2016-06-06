@@ -59,31 +59,50 @@ func Unwrap(err error) error {
 	return err
 }
 
+// UserMessage returns user-friendly part of the error
+func UserMessage(err error) string {
+	if err == nil {
+		return ""
+	}
+	if wrap, ok := err.(Error); ok {
+		return wrap.UserMessage()
+	}
+	return err.Error()
+}
+
+// DebugReport returns debug report with all known information
+// about the error including stack trace if it was captured
+func DebugReport(err error) string {
+	if err == nil {
+		return ""
+	}
+	if wrap, ok := err.(Error); ok {
+		return wrap.DebugReport()
+	}
+	return err.Error()
+}
+
 func wrap(err error, depth int, args ...interface{}) Error {
 	if err == nil {
 		return nil
 	}
-
-	t := newTrace(runtime.Caller(depth))
-	if s, ok := err.(TraceSetter); ok {
-		s.SetTraces(t.Traces...)
-		return s
+	var wrapper Error
+	if wrap, ok := err.(Error); ok {
+		wrapper = wrap
+	} else {
+		wrapper = newTrace(depth+1, err)
 	}
-	t.Err = err
-	t.Message = err.Error()
 	if len(args) != 0 {
-		t.DebugMessage = fmt.Sprintf(fmt.Sprintf("%v", args[0]), args[1:]...)
+		wrapper.AddUserMessage(args[0], args[1:]...)
 	}
-	return t
+	return wrapper
 }
 
 // Errorf is similar to fmt.Errorf except that it captures
 // more information about the origin of error, such as
 // callee, line number and function that simplifies debugging
 func Errorf(format string, args ...interface{}) error {
-	t := newTrace(runtime.Caller(1))
-	t.Err = fmt.Errorf(format, args...)
-	return t
+	return newTrace(2, fmt.Errorf(format, args...))
 }
 
 // Fatalf - If debug is false Fatalf calls Errorf. If debug is
@@ -96,28 +115,23 @@ func Fatalf(format string, args ...interface{}) error {
 	}
 }
 
-func newTrace(pc uintptr, filePath string, line int, ok bool) *TraceErr {
-	if !ok {
-		return &TraceErr{
-			nil,
-			Traces{
-				{
-					Path: "unknown_path",
-					Func: "unknown_func",
-					Line: 0,
-				}},
-			"",
-			"",
+func newTrace(depth int, err error) *TraceErr {
+	var pc [32]uintptr
+	count := runtime.Callers(depth+1, pc[:])
+
+	traces := make(Traces, count)
+	for i := 0; i < count; i++ {
+		fn := runtime.FuncForPC(pc[i])
+		filePath, line := fn.FileLine(pc[i])
+		traces[i] = Trace{
+			Func: fn.Name(),
+			Path: filePath,
+			Line: line,
 		}
 	}
 	return &TraceErr{
-		nil,
-		Traces{{
-			Path: filePath,
-			Func: runtime.FuncForPC(pc).Name(),
-			Line: line,
-		}},
-		"",
+		err,
+		traces,
 		"",
 	}
 }
@@ -126,28 +140,49 @@ func newTrace(pc uintptr, filePath string, line int, ok bool) *TraceErr {
 type Traces []Trace
 
 // SetTraces adds new traces to the list
-func (s *Traces) SetTraces(traces ...Trace) {
-	*s = append(*s, traces...)
+func (s Traces) SetTraces(traces ...Trace) {
+	s = append(s, traces...)
 }
 
 // Func returns first function in trace list
-func (s *Traces) Func() string {
-	if len(*s) == 0 {
+func (s Traces) Func() string {
+	if len(s) == 0 {
 		return ""
 	}
-	return (*s)[0].Func
+	return s[0].Func
 }
 
-// String returns debug-friendly representaton of traces
+// Func returns just function name
+func (s Traces) FuncName() string {
+	if len(s) == 0 {
+		return ""
+	}
+	fn := filepath.ToSlash(s[0].Func)
+	idx := strings.LastIndex(fn, "/")
+	if idx == -1 || idx == len(fn)-1 {
+		return fn
+	}
+	return fn[idx+1:]
+}
+
+// Loc points to file/line location in the code
+func (s Traces) Loc() string {
+	if len(s) == 0 {
+		return ""
+	}
+	return s[0].String()
+}
+
+// String returns debug-friendly representaton of trace stack
 func (s Traces) String() string {
 	if len(s) == 0 {
 		return ""
 	}
 	out := make([]string, len(s))
 	for i, t := range s {
-		out[i] = t.String()
+		out[i] = fmt.Sprintf("\t%v:%v %v", t.Path, t.Line, t.Func)
 	}
-	return strings.Join(out, ",")
+	return strings.Join(out, "\n")
 }
 
 // Trace stores structured trace entry, including file line and path
@@ -173,10 +208,9 @@ func (t *Trace) String() string {
 // TraceErr contains error message and some additional
 // information about the error origin
 type TraceErr struct {
-	Err          error `json:"error"`
-	Traces       `json:"traces"`
-	Message      string `json:"message,omitemtpy"`
-	DebugMessage string `json:"debug_message"`
+	Err     error `json:"error"`
+	Traces  `json:"traces"`
+	Message string `json:"message,omitemtpy"`
 }
 
 type rawTrace struct {
@@ -185,11 +219,35 @@ type rawTrace struct {
 	Message string `json:"message"`
 }
 
-func (e *TraceErr) Error() string {
-	if IsDebug() {
-		return fmt.Sprintf("[%v] %v %v", e.Traces.String(), e.DebugMessage, e.Err.Error())
+// AddUserMessage adds user-friendly message describing the error nature
+func (e *TraceErr) AddUserMessage(formatArg interface{}, rest ...interface{}) {
+	newMessage := fmt.Sprintf(fmt.Sprintf("%v", formatArg), rest...)
+	if len(e.Message) == 0 {
+		e.Message = newMessage
+	} else {
+		e.Message = strings.Join([]string{e.Message, newMessage}, ", ")
+	}
+}
+
+// UserMessage returns user-friendly error message
+func (e *TraceErr) UserMessage() string {
+	if e.Message != "" {
+		return e.Message
 	}
 	return e.Err.Error()
+}
+
+// DebugReport returns develeoper-friendly error report
+func (e *TraceErr) DebugReport() string {
+	return fmt.Sprintf("\nERROR REPORT:\nOriginal Error: %T %v\nStack Trace:\n%v\nUser Message: %v\n", e.Err, e.Err.Error(), e.Traces.String(), e.Message)
+}
+
+// Error returns user-friendly error message when not in debug mode
+func (e *TraceErr) Error() string {
+	if IsDebug() {
+		return e.DebugReport()
+	}
+	return e.UserMessage()
 }
 
 // OrigError returns original wrapped error
@@ -218,13 +276,20 @@ const maxHops = 50
 // So error handlers can use OrigError() to retrieve error from the wrapper
 type Error interface {
 	error
+	// OrigError returns original error wrapped in this error
 	OrigError() error
-}
+	// AddMessage adds formatted user-facing message
+	// to the error, depends on the implementation,
+	// usually works as fmt.Sprintf(formatArg, rest...)
+	// but implementations can choose another way, e.g. treat
+	// arguments as structured args
+	AddUserMessage(formatArg interface{}, rest ...interface{})
 
-// TraceSetter indicates that this error can store traces
-type TraceSetter interface {
-	Error
-	SetTraces(...Trace)
+	// UserMessage returns user-friendly error message
+	UserMessage() string
+
+	// DebugReport returns develeoper-friendly error report
+	DebugReport() string
 }
 
 // NewAggregate creates a new aggregate instance from the specified

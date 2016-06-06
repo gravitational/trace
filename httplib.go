@@ -62,33 +62,29 @@ func writeError(w http.ResponseWriter, err error) {
 // based on HTTP response code and HTTP body contents
 // if status code does not indicate error, it will return nil
 func ReadError(statusCode int, re []byte) error {
+	var e error
 	switch statusCode {
 	case http.StatusNotFound:
-		e := NotFoundError{}
-		return Wrap(unmarshalError(&e, re))
+		e = &NotFoundError{}
 	case http.StatusBadRequest:
-		e := BadParameterError{}
-		return Wrap(unmarshalError(&e, re))
+		e = &BadParameterError{}
 	case http.StatusPreconditionFailed:
-		e := CompareFailedError{}
-		return Wrap(unmarshalError(&e, re))
+		e = &CompareFailedError{}
 	case http.StatusForbidden:
-		e := AccessDeniedError{}
-		return Wrap(unmarshalError(&e, re))
+		e = &AccessDeniedError{}
 	case http.StatusConflict:
-		e := AlreadyExistsError{}
-		return Wrap(unmarshalError(&e, re))
+		e = &AlreadyExistsError{}
 	case statusTooManyRequests:
-		e := LimitExceededError{}
-		return Wrap(unmarshalError(&e, re))
+		e = &LimitExceededError{}
 	case http.StatusGatewayTimeout:
-		e := ConnectionProblemError{}
-		return Wrap(unmarshalError(&e, re))
+		e = &ConnectionProblemError{}
+	default:
+		if statusCode < 200 || statusCode > 299 {
+			return Errorf(string(re))
+		}
+		return nil
 	}
-	if statusCode < 200 || statusCode > 299 {
-		return Errorf(string(re))
-	}
-	return nil
+	return unmarshalError(e, re)
 }
 
 func replyJSON(w http.ResponseWriter, code int, err error) {
@@ -137,7 +133,6 @@ func unmarshalError(err error, responseBody []byte) error {
 		}
 		return &TraceErr{Traces: raw.Traces, Err: err, Message: raw.Message}
 	}
-	// try to capture traces, if there are any
 	json.Unmarshal(responseBody, err)
 	return err
 }

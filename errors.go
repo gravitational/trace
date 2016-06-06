@@ -70,14 +70,13 @@ func IsNotFound(e error) bool {
 // AlreadyExists returns a new instance of AlreadyExists error
 func AlreadyExists(message string, args ...interface{}) error {
 	return wrap(&AlreadyExistsError{
-		Message: fmt.Sprintf(message, args...),
+		fmt.Sprintf(message, args...),
 	}, 2)
 }
 
 // AlreadyExistsError indicates that there's a duplicate object that already
 // exists in the storage/system
 type AlreadyExistsError struct {
-	// Message is user-friendly error message
 	Message string `json:"message"`
 }
 
