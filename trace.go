@@ -102,7 +102,7 @@ func wrap(err error, depth int, args ...interface{}) Error {
 // more information about the origin of error, such as
 // callee, line number and function that simplifies debugging
 func Errorf(format string, args ...interface{}) error {
-	return newTrace(1, fmt.Errorf(format, args...))
+	return newTrace(2, fmt.Errorf(format, args...))
 }
 
 // Fatalf - If debug is false Fatalf calls Errorf. If debug is
@@ -140,24 +140,24 @@ func newTrace(depth int, err error) *TraceErr {
 type Traces []Trace
 
 // SetTraces adds new traces to the list
-func (s *Traces) SetTraces(traces ...Trace) {
-	*s = append(*s, traces...)
+func (s Traces) SetTraces(traces ...Trace) {
+	s = append(s, traces...)
 }
 
 // Func returns first function in trace list
-func (s *Traces) Func() string {
-	if len(*s) == 0 {
+func (s Traces) Func() string {
+	if len(s) == 0 {
 		return ""
 	}
-	return (*s)[0].Func
+	return s[0].Func
 }
 
 // Func returns just function name
-func (s *Traces) FuncName() string {
-	if len(*s) == 0 {
+func (s Traces) FuncName() string {
+	if len(s) == 0 {
 		return ""
 	}
-	fn := filepath.ToSlash((*s)[0].Func)
+	fn := filepath.ToSlash(s[0].Func)
 	idx := strings.LastIndex(fn, "/")
 	if idx == -1 || idx == len(fn)-1 {
 		return fn
@@ -166,11 +166,11 @@ func (s *Traces) FuncName() string {
 }
 
 // Loc points to file/line location in the code
-func (s *Traces) Loc() string {
-	if len(*s) == 0 {
+func (s Traces) Loc() string {
+	if len(s) == 0 {
 		return ""
 	}
-	return (*s)[0].String()
+	return s[0].String()
 }
 
 // String returns debug-friendly representaton of trace stack
@@ -280,7 +280,7 @@ type Error interface {
 	OrigError() error
 	// AddMessage adds formatted user-facing message
 	// to the error, depends on the implementation,
-	// ususally works as fmt.Sprintf(formatArg, rest...)
+	// usually works as fmt.Sprintf(formatArg, rest...)
 	// but implementations can choose another way, e.g. treat
 	// arguments as structured args
 	AddUserMessage(formatArg interface{}, rest ...interface{})

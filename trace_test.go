@@ -212,6 +212,12 @@ func (s *TraceSuite) TestAggregates(c *C) {
 	c.Assert(err.Error(), DeepEquals, "failed one, failed two")
 }
 
+func (s *TraceSuite) TestErrorf(c *C) {
+	err := Errorf("error")
+	c.Assert(line(DebugReport(err)), Matches, "*.trace_test.go.*")
+	c.Assert(line(UserMessage(err)), Equals, "error")
+}
+
 func (s *TraceSuite) TestAggregateConvertsToCommonErrors(c *C) {
 	testCases := []struct {
 		Err                error
