@@ -19,6 +19,7 @@ package trace
 import (
 	"crypto/x509"
 	"fmt"
+	"io"
 	"net"
 	"net/url"
 	"os"
@@ -387,4 +388,9 @@ func IsOAuth2(e error) bool {
 	}
 	_, ok := Unwrap(e).(oe)
 	return ok
+}
+
+// IsEOF returns true if the passed error is io.EOF
+func IsEOF(e error) bool {
+	return Unwrap(e) == io.EOF
 }
