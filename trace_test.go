@@ -19,6 +19,7 @@ package trace
 import (
 	"bytes"
 	"fmt"
+	"io"
 	"net/http"
 	"os"
 	"strings"
@@ -54,6 +55,11 @@ func (s *TraceSuite) TestOrigError(c *C) {
 	testErr := fmt.Errorf("some error")
 	err := Wrap(Wrap(testErr))
 	c.Assert(err.OrigError(), Equals, testErr)
+}
+
+func (s *TraceSuite) TestIsEOF(c *C) {
+	c.Assert(IsEOF(io.EOF), Equals, true)
+	c.Assert(IsEOF(Wrap(io.EOF)), Equals, true)
 }
 
 func (s *TraceSuite) TestWrapMessage(c *C) {
