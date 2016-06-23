@@ -48,7 +48,7 @@ func IsDebug() bool {
 // Wrap takes the original error and wraps it into the Trace struct
 // memorizing the context of the error.
 func Wrap(err error, args ...interface{}) Error {
-	return wrap(err, 2, args...)
+	return wrapWithDepth(err, 2, args...)
 }
 
 // Unwrap unwraps error to it's original error
@@ -82,7 +82,12 @@ func DebugReport(err error) string {
 	return err.Error()
 }
 
-func wrap(err error, depth int, args ...interface{}) Error {
+func wrap(err error, message string, args ...interface{}) Error {
+	args = append([]interface{}{message}, args...)
+	return wrapWithDepth(err, 3, args...)
+}
+
+func wrapWithDepth(err error, depth int, args ...interface{}) Error {
 	if err == nil {
 		return nil
 	}
@@ -305,7 +310,7 @@ func NewAggregate(errs ...error) error {
 	if len(nonNils) == 0 {
 		return nil
 	}
-	return wrap(aggregate(nonNils), 2)
+	return wrapWithDepth(aggregate(nonNils), 2)
 }
 
 // NewAggregateFromChannel creates a new aggregate instance from the provided

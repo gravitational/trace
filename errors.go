@@ -29,7 +29,7 @@ import (
 func NotFound(message string, args ...interface{}) error {
 	return wrap(&NotFoundError{
 		Message: fmt.Sprintf(message, args...),
-	}, 2)
+	}, message, args...)
 }
 
 // NotFoundError indicates that object has not been found
@@ -72,7 +72,7 @@ func IsNotFound(e error) bool {
 func AlreadyExists(message string, args ...interface{}) error {
 	return wrap(&AlreadyExistsError{
 		fmt.Sprintf(message, args...),
-	}, 2)
+	}, message, args...)
 }
 
 // AlreadyExistsError indicates that there's a duplicate object that already
@@ -113,7 +113,7 @@ func IsAlreadyExists(e error) bool {
 func BadParameter(message string, args ...interface{}) error {
 	return wrap(&BadParameterError{
 		Message: fmt.Sprintf(message, args...),
-	}, 2)
+	}, message, args...)
 }
 
 // BadParameterError indicates that something is wrong with passed
@@ -148,7 +148,7 @@ func IsBadParameter(e error) bool {
 
 // CompareFailed returns new instance of CompareFailedError
 func CompareFailed(message string, args ...interface{}) error {
-	return wrap(&CompareFailedError{Message: fmt.Sprintf(message, args...)}, 2)
+	return wrap(&CompareFailedError{Message: fmt.Sprintf(message, args...)}, message, args...)
 }
 
 // CompareFailedError indicates a failed comparison (e.g. bad password or hash)
@@ -188,7 +188,7 @@ func IsCompareFailed(e error) bool {
 func AccessDenied(message string, args ...interface{}) error {
 	return wrap(&AccessDeniedError{
 		Message: fmt.Sprintf(message, args...),
-	}, 2)
+	}, message, args...)
 }
 
 // AccessDeniedError indicates denied access
@@ -229,22 +229,24 @@ func ConvertSystemError(err error) error {
 	innerError := Unwrap(err)
 
 	if os.IsNotExist(innerError) {
-		return wrap(&NotFoundError{Message: innerError.Error()}, 2)
+		return wrap(&NotFoundError{Message: innerError.Error()}, innerError.Error())
 	}
 	if os.IsPermission(innerError) {
-		return wrap(&AccessDeniedError{Message: innerError.Error()}, 2)
+		return wrap(&AccessDeniedError{Message: innerError.Error()}, innerError.Error())
 	}
 	switch realErr := innerError.(type) {
 	case *net.OpError:
+		message := fmt.Sprintf("failed to connect to server %v", realErr.Addr)
 		return wrap(&ConnectionProblemError{
-			Message: fmt.Sprintf("failed to connect to server %v", realErr.Addr),
-			Err:     realErr}, 2)
+			Message: message,
+			Err:     realErr}, message)
 	case *os.PathError:
+		message := fmt.Sprintf("failed to execute command %v error:  %v", realErr.Path, realErr.Err)
 		return wrap(&AccessDeniedError{
-			Message: fmt.Sprintf("failed to execute command %v error:  %v", realErr.Path, realErr.Err),
-		}, 2)
+			Message: message,
+		}, message)
 	case x509.SystemRootsError, x509.UnknownAuthorityError:
-		return wrap(&TrustError{Err: innerError}, 2)
+		return wrapWithDepth(&TrustError{Err: innerError}, 2)
 	default:
 		return err
 	}
@@ -255,7 +257,7 @@ func ConnectionProblem(err error, message string, args ...interface{}) error {
 	return wrap(&ConnectionProblemError{
 		Message: fmt.Sprintf(message, args...),
 		Err:     err,
-	}, 2)
+	}, message, args...)
 }
 
 // ConnectionProblemError indicates a network related problem
@@ -292,7 +294,7 @@ func IsConnectionProblem(e error) bool {
 func LimitExceeded(message string, args ...interface{}) error {
 	return wrap(&LimitExceededError{
 		Message: fmt.Sprintf(message, args...),
-	}, 2)
+	}, message, args...)
 }
 
 // LimitExceededError indicates rate limit or connection limit problem
@@ -361,7 +363,7 @@ func OAuth2(code, message string, query url.Values) Error {
 		Code:    code,
 		Message: message,
 		Query:   query,
-	}, 2)
+	}, message)
 }
 
 // OAuth2Error defined an error used in OpenID Connect Flow (OIDC)
