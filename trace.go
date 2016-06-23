@@ -84,7 +84,7 @@ func DebugReport(err error) string {
 
 func wrap(err error, message string, args ...interface{}) Error {
 	args = append([]interface{}{message}, args...)
-	return wrapWithDepth(err, 2, args...)
+	return wrapWithDepth(err, 3, args...)
 }
 
 func wrapWithDepth(err error, depth int, args ...interface{}) Error {
