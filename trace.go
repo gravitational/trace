@@ -48,13 +48,12 @@ func IsDebug() bool {
 // Wrap takes the original error and wraps it into the Trace struct
 // memorizing the context of the error.
 func Wrap(err error, args ...interface{}) Error {
-	trace := wrapWithDepth(err, 2)
 	if len(args) > 0 {
 		format := args[0]
 		args = args[1:]
-		trace.AddUserMessage(format, args...)
+		return wrap(err, format, args...)
 	}
-	return trace
+	return wrapWithDepth(err, 2)
 }
 
 // Unwrap unwraps error to it's original error
@@ -88,9 +87,11 @@ func DebugReport(err error) string {
 	return err.Error()
 }
 
-func wrap(err error, message string, args ...interface{}) Error {
+func wrap(err error, message interface{}, args ...interface{}) Error {
 	trace := wrapWithDepth(err, 3)
-	trace.AddUserMessage(message, args...)
+	if trace != nil {
+		trace.AddUserMessage(message, args...)
+	}
 	return trace
 }
 
