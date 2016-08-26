@@ -87,7 +87,7 @@ func (s *TraceSuite) TestWrapUserMessage(c *C) {
 }
 
 func (s *TraceSuite) TestWrapNil(c *C) {
-	err1 := Wrap(nil)
+	err1 := Wrap(nil, "message: %v", "extra")
 	c.Assert(err1, IsNil)
 
 	var err2 error
@@ -221,7 +221,7 @@ func (s *TraceSuite) TestAggregates(c *C) {
 func (s *TraceSuite) TestErrorf(c *C) {
 	err := Errorf("error")
 	c.Assert(line(DebugReport(err)), Matches, "*.trace_test.go.*")
-	c.Assert(line(UserMessage(err)), Equals, "error")
+	c.Assert(line(err.(*TraceErr).Message), Equals, "error")
 }
 
 func (s *TraceSuite) TestAggregateConvertsToCommonErrors(c *C) {

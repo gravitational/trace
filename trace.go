@@ -48,7 +48,12 @@ func IsDebug() bool {
 // Wrap takes the original error and wraps it into the Trace struct
 // memorizing the context of the error.
 func Wrap(err error, args ...interface{}) Error {
-	return wrapWithDepth(err, 2, args...)
+	if len(args) > 0 {
+		format := args[0]
+		args = args[1:]
+		return wrap(err, format, args...)
+	}
+	return wrapWithDepth(err, 2)
 }
 
 // Unwrap unwraps error to it's original error
@@ -82,32 +87,36 @@ func DebugReport(err error) string {
 	return err.Error()
 }
 
-func wrap(err error, message string, args ...interface{}) Error {
-	args = append([]interface{}{message}, args...)
-	return wrapWithDepth(err, 3, args...)
+func wrap(err error, message interface{}, args ...interface{}) Error {
+	trace := wrapWithDepth(err, 3)
+	if trace != nil {
+		trace.AddUserMessage(message, args...)
+	}
+	return trace
 }
 
-func wrapWithDepth(err error, depth int, args ...interface{}) Error {
+func wrapWithDepth(err error, depth int) Error {
 	if err == nil {
 		return nil
 	}
-	var wrapper Error
-	if wrap, ok := err.(Error); ok {
-		wrapper = wrap
+	var trace Error
+	if wrapped, ok := err.(Error); ok {
+		trace = wrapped
 	} else {
-		wrapper = newTrace(depth+1, err)
+		trace = newTrace(depth+1, err)
 	}
-	if len(args) != 0 {
-		wrapper.AddUserMessage(args[0], args[1:]...)
-	}
-	return wrapper
+
+	return trace
 }
 
 // Errorf is similar to fmt.Errorf except that it captures
 // more information about the origin of error, such as
 // callee, line number and function that simplifies debugging
-func Errorf(format string, args ...interface{}) error {
-	return newTrace(2, fmt.Errorf(format, args...))
+func Errorf(format string, args ...interface{}) (err error) {
+	err = fmt.Errorf(format, args...)
+	trace := wrapWithDepth(err, 2)
+	trace.AddUserMessage(format, args...)
+	return trace
 }
 
 // Fatalf - If debug is false Fatalf calls Errorf. If debug is
