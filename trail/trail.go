@@ -18,14 +18,13 @@ limitations under the License.
 //
 // Example server that sends the GRPC error and attaches metadata:
 //
-//
 //  func (s *server) Echo(ctx context.Context, message *gw.StringMessage) (*gw.StringMessage, error) {
-//     trace.SetDebug(true) // to tell trace to start attaching metadata
-//     // Send sends metadata via grpc header and converts error to GRPC compatible one
-//     return nil, trail.Send(ctx, trace.AccessDenied("missing authorization"))
+//      trace.SetDebug(true) // to tell trace to start attaching metadata
+//      // Send sends metadata via grpc header and converts error to GRPC compatible one
+//      return nil, trail.Send(ctx, trace.AccessDenied("missing authorization"))
 //  }
 //
-// Example client reading error and trace debug infor
+// Example client reading error and trace debug info:
 //
 //  var header metadata.MD
 //	r, err := c.Echo(context.Background(), &gw.StringMessage{Value: message}, grpc.Header(&header))
@@ -68,16 +67,16 @@ func Send(ctx context.Context, err error) error {
 	}
 	log.Error(trace.DebugReport(err))
 	if len(meta) != 0 {
-		log.Infof("meta: %v", meta)
-		err2 := grpc.SendHeader(ctx, meta)
-		if err2 != nil {
-			log.Errorf("failed to send metadata: %v", err2)
+		sendErr := grpc.SendHeader(ctx, meta)
+		if sendErr != nil {
+			return trace.NewAggregate(err, sendErr)
 		}
 	}
 	return ToGRPC(err)
 }
 
-// DebugReportMetadata is a debug report metadata for the error
+// DebugReportMetadata is a key in metadata holding debug information
+// about the error - stack traces and original error
 const DebugReportMetadata = "trace-debug-report"
 
 // ToGRPC converts error to GRPC-compatible error
@@ -111,7 +110,7 @@ func ToGRPC(err error) error {
 }
 
 // FromGRPC converts error from GRPC error back to trace.Error
-// Optional debug information can be recovered using metadata
+// Debug information will be retrieved from the metadata if specified in args
 func FromGRPC(err error, args ...interface{}) error {
 	if err == nil {
 		return nil
@@ -147,7 +146,8 @@ func FromGRPC(err error, args ...interface{}) error {
 	return e
 }
 
-// SetDebugInfo adds debug metadata about error to request
+// SetDebugInfo adds debug metadata about error (traces, original error)
+// to request metadata as encoded property
 func SetDebugInfo(err error, meta metadata.MD) {
 	if _, ok := err.(*trace.TraceErr); !ok {
 		return
@@ -164,19 +164,19 @@ func SetDebugInfo(err error, meta metadata.MD) {
 // DecodeDebugInfo decodes debug information about error
 // from the metadata and returns error with enriched metadata about it
 func DecodeDebugInfo(err error, meta metadata.MD) error {
-	if meta == nil {
+	if len(meta) == 0 {
 		return err
 	}
 	encoded, ok := meta[DebugReportMetadata]
 	if !ok || len(encoded) != 1 {
 		return err
 	}
-	data, err2 := base64.StdEncoding.DecodeString(encoded[0])
-	if err2 != nil {
+	data, decodeErr := base64.StdEncoding.DecodeString(encoded[0])
+	if decodeErr != nil {
 		return err
 	}
 	var raw trace.RawTrace
-	if err2 := json.Unmarshal(data, &raw); err2 != nil {
+	if unmarshalErr := json.Unmarshal(data, &raw); unmarshalErr != nil {
 		return err
 	}
 	if len(raw.Traces) != 0 && len(raw.Err) != 0 {
