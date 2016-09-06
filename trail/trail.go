@@ -1,5 +1,5 @@
 /*
-Copyright 2015 Gravitational, Inc.
+Copyright 2016 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -19,15 +19,15 @@ limitations under the License.
 // Example server that sends the GRPC error and attaches metadata:
 //
 //
-// func (s *server) Echo(ctx context.Context, message *gw.StringMessage) (*gw.StringMessage, error) {
-//    trace.SetDebug(true) // to tell trace to start attaching metadata
-//    // Send sends metadata via grpc header and converts error to GRPC compatible one
-//    return nil, trail.Send(ctx, trace.AccessDenied("missing authorization"))
-// }
+//  func (s *server) Echo(ctx context.Context, message *gw.StringMessage) (*gw.StringMessage, error) {
+//     trace.SetDebug(true) // to tell trace to start attaching metadata
+//     // Send sends metadata via grpc header and converts error to GRPC compatible one
+//     return nil, trail.Send(ctx, trace.AccessDenied("missing authorization"))
+//  }
 //
 // Example client reading error and trace debug infor
 //
-//	var header metadata.MD
+//  var header metadata.MD
 //	r, err := c.Echo(context.Background(), &gw.StringMessage{Value: message}, grpc.Header(&header))
 //	if err != nil {
 //      // FromGRPC reads error, converts it back to trace error and attaches debug metadata
