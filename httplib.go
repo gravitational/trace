@@ -121,7 +121,7 @@ func unmarshalError(err error, responseBody []byte) error {
 	if len(responseBody) == 0 {
 		return err
 	}
-	var raw rawTrace
+	var raw RawTrace
 	if err2 := json.Unmarshal(responseBody, &raw); err2 != nil {
 		return err
 	}

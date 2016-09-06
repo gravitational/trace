@@ -51,7 +51,7 @@ func Wrap(err error, args ...interface{}) Error {
 	if len(args) > 0 {
 		format := args[0]
 		args = args[1:]
-		return wrap(err, format, args...)
+		return WrapWithMessage(err, format, args...)
 	}
 	return wrapWithDepth(err, 2)
 }
@@ -87,7 +87,8 @@ func DebugReport(err error) string {
 	return err.Error()
 }
 
-func wrap(err error, message interface{}, args ...interface{}) Error {
+// WrapWithMessage wraps the original error into Error and adds user message if any
+func WrapWithMessage(err error, message interface{}, args ...interface{}) Error {
 	trace := wrapWithDepth(err, 3)
 	if trace != nil {
 		trace.AddUserMessage(message, args...)
@@ -227,7 +228,7 @@ type TraceErr struct {
 	Message string `json:"message,omitemtpy"`
 }
 
-type rawTrace struct {
+type RawTrace struct {
 	Err     json.RawMessage `json:"error"`
 	Traces  `json:"traces"`
 	Message string `json:"message"`
