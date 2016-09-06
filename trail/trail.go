@@ -15,6 +15,28 @@ limitations under the License.
 */
 
 // Package trail integrates trace errors with GRPC
+//
+// Example server that sends the GRPC error and attaches metadata:
+//
+//
+// func (s *server) Echo(ctx context.Context, message *gw.StringMessage) (*gw.StringMessage, error) {
+//    trace.SetDebug(true) // to tell trace to start attaching metadata
+//    // Send sends metadata via grpc header and converts error to GRPC compatible one
+//    return nil, trail.Send(ctx, trace.AccessDenied("missing authorization"))
+// }
+//
+// Example client reading error and trace debug infor
+//
+//	var header metadata.MD
+//	r, err := c.Echo(context.Background(), &gw.StringMessage{Value: message}, grpc.Header(&header))
+//	if err != nil {
+//      // FromGRPC reads error, converts it back to trace error and attaches debug metadata
+//      // like stack trace of the error origin back to the error
+//		err = trail.FromGRPC(err, header)
+///     // this line will log original trace of the error
+//		log.Errorf("error saying echo: %v", trace.DebugReport(err))
+//		return
+//	}
 package trail
 
 import (
@@ -60,6 +82,9 @@ const DebugReportMetadata = "trace-debug-report"
 
 // ToGRPC converts error to GRPC-compatible error
 func ToGRPC(err error) error {
+	if err == nil {
+		return nil
+	}
 	userMessage := trace.UserMessage(err)
 	if trace.IsNotFound(err) {
 		return grpc.Errorf(codes.NotFound, userMessage)
@@ -88,6 +113,9 @@ func ToGRPC(err error) error {
 // FromGRPC converts error from GRPC error back to trace.Error
 // Optional debug information can be recovered using metadata
 func FromGRPC(err error, args ...interface{}) error {
+	if err == nil {
+		return nil
+	}
 	code := grpc.Code(err)
 	message := grpc.ErrorDesc(err)
 	var e error
