@@ -45,7 +45,6 @@ import (
 
 	"github.com/gravitational/trace"
 
-	log "github.com/Sirupsen/logrus"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -53,7 +52,6 @@ import (
 )
 
 // Send is a high level function that:
-// * logs error
 // * converts error to GRPC error
 // * attaches debug metadata to existing metadata if possible
 // * sends the header to GRPC
@@ -65,7 +63,6 @@ func Send(ctx context.Context, err error) error {
 	if trace.IsDebug() {
 		SetDebugInfo(err, meta)
 	}
-	log.Error(trace.DebugReport(err))
 	if len(meta) != 0 {
 		sendErr := grpc.SendHeader(ctx, meta)
 		if sendErr != nil {
