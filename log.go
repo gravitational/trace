@@ -48,6 +48,7 @@ func (tf *TextFormatter) Format(e *log.Entry) ([]byte, error) {
 	if frameNo := findFrame(); frameNo != -1 {
 		t := newTrace(frameNo, nil)
 		new := e.WithFields(log.Fields{FileField: t.Loc(), FunctionField: t.FuncName()})
+		new.Time = e.Time
 		new.Level = e.Level
 		new.Message = e.Message
 		e = new
