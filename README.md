@@ -7,7 +7,7 @@ Package for error handling and error reporting
 
 Read more here:
 
-http://blog.gravitational.com/thoughts-on-error-handling-in-go-programs/
+http://gravitational.com/blog/golang_error_handling/
 
 ### Capture file, line and function
 
