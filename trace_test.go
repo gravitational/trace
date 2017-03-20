@@ -208,6 +208,18 @@ func (s *TraceSuite) TestWriteExternalErrors(c *C) {
 	c.Assert(strings.Replace(string(w.Body), "\n", "", -1), Matches, "*.snap.*")
 }
 
+type netError struct {
+}
+
+func (e *netError) Error() string   { return "net" }
+func (e *netError) Timeout() bool   { return true }
+func (e *netError) Temporary() bool { return true }
+
+func (s *TraceSuite) TestConvert(c *C) {
+	err := ConvertSystemError(&netError{})
+	c.Assert(IsConnectionProblem(err), Equals, true, Commentf("failed to detect network error"))
+}
+
 func (s *TraceSuite) TestAggregates(c *C) {
 	err1 := Errorf("failed one")
 	err2 := Errorf("failed two")
