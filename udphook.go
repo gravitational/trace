@@ -94,7 +94,7 @@ func (elk *UDPHook) Fire(e *log.Entry) error {
 		return Wrap(err)
 	}
 
-	_, err = (c.(*net.UDPConn)).WriteToUDP(data, resolvedAddr)
+	_, err = (conn.(*net.UDPConn)).WriteToUDP(data, resolvedAddr)
 	return Wrap(err)
 
 }
