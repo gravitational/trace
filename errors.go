@@ -403,7 +403,7 @@ func IsEOF(e error) bool {
 	return Unwrap(e) == io.EOF
 }
 
-// Retry return new instance of RetryError which indicates a potentially recoverable error type
+// Retry return new instance of RetryError which indicates a transient error type
 func Retry(err error, message string, args ...interface{}) error {
 	return WrapWithMessage(&RetryError{
 		Message: fmt.Sprintf(message, args...),
@@ -411,13 +411,13 @@ func Retry(err error, message string, args ...interface{}) error {
 	}, message, args...)
 }
 
-// RetryError indicates a network related problem
+// RetryError indicates a transient error type
 type RetryError struct {
 	Message string `json:"message"`
 	Err     error  `json:"-"`
 }
 
-// Error is debug - friendly error message
+// Error is debug-friendly error message
 func (c *RetryError) Error() string {
 	if c.Err == nil {
 		return c.Message
