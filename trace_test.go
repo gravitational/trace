@@ -25,7 +25,7 @@ import (
 	"strings"
 	"testing"
 
-	log "github.com/Sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 
 	"golang.org/x/net/context"
 	. "gopkg.in/check.v1"
