@@ -70,6 +70,7 @@ func (j *JSONFormatter) Format(e *log.Entry) ([]byte, error) {
 			FileField:     t.Loc(),
 			FunctionField: t.FuncName(),
 		})
+		new.Time = e.Time
 		new.Level = e.Level
 		new.Message = e.Message
 		e = new
