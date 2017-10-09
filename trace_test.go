@@ -137,13 +137,14 @@ func (s *TraceSuite) TestTextFormatter(c *C) {
 	log.SetFormatter(f)
 
 	type testCase struct {
-		log   func()
-		match string
+		log     func()
+		match   string
+		comment string
 	}
 
 	testCases := []testCase{
 		{
-			// padding fits in
+			comment: "padding fits in",
 			log: func() {
 				log.WithFields(log.Fields{
 					Component: "test",
@@ -152,7 +153,7 @@ func (s *TraceSuite) TestTextFormatter(c *C) {
 			match: `^INFO \[TEST\] hello.*`,
 		},
 		{
-			// padding overflow
+			comment: "padding overflow",
 			log: func() {
 				log.WithFields(log.Fields{
 					Component: "longline",
@@ -161,7 +162,7 @@ func (s *TraceSuite) TestTextFormatter(c *C) {
 			match: `^INFO \[LONG\] hello.*`,
 		},
 		{
-			// padded with extra spaces
+			comment: "padded with extra spaces",
 			log: func() {
 				log.WithFields(log.Fields{
 					Component: "abc",
@@ -170,14 +171,14 @@ func (s *TraceSuite) TestTextFormatter(c *C) {
 			match: `^INFO \[ABC\]  hello.*`,
 		},
 		{
-			// missing component will be padded
+			comment: "missing component will be padded",
 			log: func() {
 				log.Infof("hello")
 			},
 			match: `^INFO        hello.*`,
 		},
 		{
-			// panic in component is handled
+			comment: "panic in component is handled",
 			log: func() {
 				log.WithFields(log.Fields{
 					Component: panicker("panic"),
@@ -186,7 +187,7 @@ func (s *TraceSuite) TestTextFormatter(c *C) {
 			match: `.*panic.*`,
 		},
 		{
-			// nested fields are reflected
+			comment: "nested fields are reflected",
 			log: func() {
 				log.WithFields(log.Fields{
 					ComponentFields: log.Fields{"key": "value"},
@@ -195,7 +196,7 @@ func (s *TraceSuite) TestTextFormatter(c *C) {
 			match: `.*key:value.*`,
 		},
 		{
-			// fields are reflected
+			comment: "fields are reflected",
 			log: func() {
 				log.WithFields(log.Fields{
 					"a": "b",
@@ -203,10 +204,24 @@ func (s *TraceSuite) TestTextFormatter(c *C) {
 			},
 			match: `.*a:b.*`,
 		},
+		{
+			comment: "non control characters are quoted",
+			log: func() {
+				log.Infof("\n")
+			},
+			match: `.*"\\n".*`,
+		},
+		{
+			comment: "printable strings are not quoted",
+			log: func() {
+				log.Infof("printable string")
+			},
+			match: `.*[^"]printable string[^"].*`,
+		},
 	}
 
 	for i, tc := range testCases {
-		comment := Commentf("test case %v, expected match: %v", i+1, tc.match)
+		comment := Commentf("test case %v %v, expected match: %v", i+1, tc.comment, tc.match)
 		buf := &bytes.Buffer{}
 		log.SetOutput(buf)
 		tc.log()
