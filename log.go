@@ -121,7 +121,6 @@ func (tf *TextFormatter) Format(e *log.Entry) (data []byte, err error) {
 
 	// rest of the fields
 	if len(e.Data) > 0 {
-		w.WriteByte(' ')
 		w.writeMap(e.Data)
 	}
 	w.WriteByte('\n')
@@ -211,16 +210,8 @@ func (w *writer) writeMap(m map[string]interface{}) {
 			continue
 		}
 		switch val := m[key].(type) {
-		case map[string]interface{}:
-			w.WriteString(key)
-			w.WriteString(":{")
-			w.writeMap(val)
-			w.WriteString(" }")
 		case log.Fields:
-			w.WriteString(key)
-			w.WriteString(":{")
 			w.writeMap(val)
-			w.WriteString(" }")
 		default:
 			w.writeKeyValue(key, val)
 		}

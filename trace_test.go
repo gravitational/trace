@@ -185,6 +185,24 @@ func (s *TraceSuite) TestTextFormatter(c *C) {
 			},
 			match: `.*panic.*`,
 		},
+		{
+			// nested fields are reflected
+			log: func() {
+				log.WithFields(log.Fields{
+					ComponentFields: log.Fields{"key": "value"},
+				}).Infof("hello")
+			},
+			match: `.*key:value.*`,
+		},
+		{
+			// fields are reflected
+			log: func() {
+				log.WithFields(log.Fields{
+					"a": "b",
+				}).Infof("hello")
+			},
+			match: `.*a:b.*`,
+		},
 	}
 
 	for i, tc := range testCases {
