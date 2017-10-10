@@ -115,15 +115,16 @@ func (tf *TextFormatter) Format(e *log.Entry) (data []byte, err error) {
 		w.writeField(e.Message)
 	}
 
-	// file, if present
-	if file != "" {
-		w.writeField(file)
-	}
-
 	// rest of the fields
 	if len(e.Data) > 0 {
 		w.writeMap(e.Data)
 	}
+
+	// file, if present, always last
+	if file != "" {
+		w.writeField(file)
+	}
+
 	w.WriteByte('\n')
 	data = w.Bytes()
 	return
