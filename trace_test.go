@@ -268,7 +268,7 @@ func (s *TraceSuite) TestGenericErrors(c *C) {
 		{
 			Err:        LimitExceeded("limit exceeded"),
 			Predicate:  IsLimitExceeded,
-			StatusCode: statusTooManyRequests,
+			StatusCode: http.StatusTooManyRequests,
 		},
 	}
 
