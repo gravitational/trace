@@ -324,6 +324,11 @@ func (e *netError) Temporary() bool { return true }
 func (s *TraceSuite) TestConvert(c *C) {
 	err := ConvertSystemError(&netError{})
 	c.Assert(IsConnectionProblem(err), Equals, true, Commentf("failed to detect network error"))
+
+	dir := c.MkDir()
+	err = os.Mkdir(dir, 0770)
+	err = ConvertSystemError(err)
+	c.Assert(IsAlreadyExists(err), Equals, true, Commentf("expected AlreadyExists error, got %T", err))
 }
 
 func (s *TraceSuite) TestAggregates(c *C) {
