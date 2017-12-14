@@ -19,6 +19,21 @@ const (
 // UDPOptionSetter represents functional arguments passed to ELKHook
 type UDPOptionSetter func(f *UDPHook)
 
+// ClientNet sets clientNet option in UDPHook
+// Usage: hook, err := NewUDPHook(ClientNet("tcp"))
+func ClientNet(clientNet string) UDPOptionSetter  {
+	return func(f *UDPHook) {
+		f.clientNet = clientNet
+	}
+}
+// ClientAddr sets clientAddr option in UDPHook
+// Usage: hook, err := NewUDPHook(ClientAddr("192.168.1.1:65000"))
+func ClientAddr(clientAddr string) UDPOptionSetter  {
+	return func(f *UDPHook) {
+		f.clientAddr = clientAddr
+	}
+}
+
 // NewUDPHook returns logrus-compatible hook that sends data to UDP socket
 func NewUDPHook(opts ...UDPOptionSetter) (*UDPHook, error) {
 	f := &UDPHook{}
@@ -89,7 +104,7 @@ func (elk *UDPHook) Fire(e *log.Entry) error {
 	}
 	defer conn.Close()
 
-	resolvedAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:5000")
+	resolvedAddr, err := net.ResolveUDPAddr(elk.clientNet, elk.clientAddr)
 	if err != nil {
 		return Wrap(err)
 	}
