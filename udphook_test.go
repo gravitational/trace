@@ -49,9 +49,6 @@ func (s *HooksSuite) TestSafeForConcurrentAccess(c *C) {
 }
 
 func TestClientNet(t *testing.T) {
-	type args struct {
-		clientNet string
-	}
 	tests := []struct {
 		name string
 		clientNet string
@@ -67,7 +64,7 @@ func TestClientNet(t *testing.T) {
 			hook := UDPHook{}
 			f(&hook)
 
-			if hook.clientNet!= tt.want /*!reflect.DeepEqual(got, tt.want) */{
+			if hook.clientNet!= tt.want {
 				t.Errorf("ClientNet() = %v, want %v", hook.clientNet, tt.want)
 			}
 		})
@@ -75,9 +72,6 @@ func TestClientNet(t *testing.T) {
 }
 
 func TestClientAddr(t *testing.T) {
-	type args struct {
-		clientNet string
-	}
 	tests := []struct {
 		name string
 		clientAddr string
@@ -93,7 +87,7 @@ func TestClientAddr(t *testing.T) {
 			hook := UDPHook{}
 			f(&hook)
 
-			if hook.clientAddr != tt.want /*!reflect.DeepEqual(got, tt.want) */{
+			if hook.clientAddr != tt.want {
 				t.Errorf("ClientAddr() = %v, want %v", hook.clientNet, tt.want)
 			}
 		})
