@@ -72,7 +72,6 @@ type UDPHook struct {
 
 type Frame struct {
 	Time    time.Time              `json:"time"`
-	Type    string                 `json:"type"`
 	Entry   map[string]interface{} `json:"entry"`
 	Message string                 `json:"message"`
 	Level   string                 `json:"level"`
@@ -89,7 +88,6 @@ func (elk *UDPHook) Fire(e *log.Entry) error {
 	}
 	data, err := json.Marshal(Frame{
 		Time:    elk.Clock.Now().UTC(),
-		Type:    "trace",
 		Entry:   entry.Data,
 		Message: entry.Message,
 		Level:   entry.Level.String(),
