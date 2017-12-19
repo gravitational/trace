@@ -34,6 +34,15 @@ func ClientAddr(clientAddr string) UDPOptionSetter  {
 	}
 }
 
+// Target sets clientNet and clientAddr option in UDPHook in one call
+// Usage: hook, err := NewUDPHook(Target("udp", "192.168.1.1:65000"))
+func Target(network, addr string) UDPOptionSetter {
+	return func(f *UDPHook) {
+		f.clientNet = network
+		f.clientAddr = addr
+	}
+}
+
 // NewUDPHook returns logrus-compatible hook that sends data to UDP socket
 func NewUDPHook(opts ...UDPOptionSetter) (*UDPHook, error) {
 	f := &UDPHook{}

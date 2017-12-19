@@ -50,13 +50,13 @@ func (s *HooksSuite) TestSafeForConcurrentAccess(c *C) {
 
 func TestClientNet(t *testing.T) {
 	tests := []struct {
-		name string
+		name      string
 		clientNet string
-		want string
+		want      string
 	}{
-		{"Empty value", "", "", },
-		{"UDP", "udp", "udp", },
-		{"TCP", "tcp", "tcp", },
+		{"Empty value", "", ""},
+		{"UDP", "udp", "udp"},
+		{"TCP", "tcp", "tcp"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -64,7 +64,7 @@ func TestClientNet(t *testing.T) {
 			hook := UDPHook{}
 			f(&hook)
 
-			if hook.clientNet!= tt.want {
+			if hook.clientNet != tt.want {
 				t.Errorf("ClientNet() = %v, want %v", hook.clientNet, tt.want)
 			}
 		})
@@ -73,13 +73,13 @@ func TestClientNet(t *testing.T) {
 
 func TestClientAddr(t *testing.T) {
 	tests := []struct {
-		name string
+		name       string
 		clientAddr string
-		want string
+		want       string
 	}{
-		{"Empty value", "", "", },
-		{"Localhost and another port", "127.0.0.1:9999", "127.0.0.1:9999", },
-		{"Another host", "192.168.0.1:9999", "192.168.0.1:9999", },
+		{"Empty value", "", ""},
+		{"Localhost and another port", "127.0.0.1:9999", "127.0.0.1:9999"},
+		{"Another host", "192.168.0.1:9999", "192.168.0.1:9999"},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -88,11 +88,44 @@ func TestClientAddr(t *testing.T) {
 			f(&hook)
 
 			if hook.clientAddr != tt.want {
-				t.Errorf("ClientAddr() = %v, want %v", hook.clientNet, tt.want)
+				t.Errorf("ClientAddr() = %v, want %v", hook.clientAddr, tt.want)
 			}
 		})
 	}
 }
+
+func TestTarget(t *testing.T) {
+	type args struct {
+		network string
+		addr    string
+	}
+	tests := []struct {
+		name string
+		args args
+		wantNet string
+		wantAddr string
+	}{
+		{"Empty value", args{"", ""}, "", ""},
+		{"Localhost and another port", args{"udp", "127.0.0.1:9999"}, "udp", "127.0.0.1:9999", },
+		{"Another host", args{"tcp", "192.168.0.1:9999"}, "tcp","192.168.0.1:9999"},
+
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			f := Target(tt.args.network, tt.args.addr)
+			hook := UDPHook{}
+			f(&hook)
+
+			if hook.clientAddr != tt.wantAddr {
+				t.Errorf("Target() addr = %v, want %v", hook.clientAddr, tt.wantAddr)
+			}
+			if hook.clientNet != tt.wantNet {
+				t.Errorf("ClientAddr() = %v, want %v", hook.clientNet, tt.wantNet)
+			}
+		})
+	}
+}
+
 
 func TestUDPHook_Fire(t *testing.T) {
 	remoteAddr := "127.0.0.1:5501"
@@ -107,15 +140,15 @@ func TestUDPHook_Fire(t *testing.T) {
 	var ok bool
 
 	var (
-		wg sync.WaitGroup
-		bytesRead int
+		wg              sync.WaitGroup
+		bytesRead       int
 		serverReadError error
 	)
 	wg.Add(1)
 	go func() {
 		defer wg.Done()
 		var b = make([]byte, 1024)
-		UDPConn.SetDeadline(time.Now().Add(100*time.Millisecond))
+		UDPConn.SetDeadline(time.Now().Add(100 * time.Millisecond))
 		bytesRead, _, serverReadError = UDPConn.ReadFromUDP(b)
 		if bytesRead > 0 {
 			ok = true
@@ -123,7 +156,7 @@ func TestUDPHook_Fire(t *testing.T) {
 		serverReadError = err
 	}()
 
-	hook, err := NewUDPHook(ClientAddr(remoteAddr+""))
+	hook, err := NewUDPHook(ClientAddr(remoteAddr + ""))
 	logger := log.New()
 	entry := log.NewEntry(logger)
 
