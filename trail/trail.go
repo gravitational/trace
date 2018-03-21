@@ -56,7 +56,7 @@ import (
 // * attaches debug metadata to existing metadata if possible
 // * sends the header to GRPC
 func Send(ctx context.Context, err error) error {
-	meta, ok := metadata.FromContext(ctx)
+	meta, ok := metadata.FromIncomingContext(ctx)
 	if !ok {
 		meta = metadata.New(nil)
 	}
