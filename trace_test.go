@@ -49,6 +49,7 @@ func (s *TraceSuite) TestWrap(c *C) {
 
 	c.Assert(line(DebugReport(err)), Matches, ".*trace_test.go.*")
 	c.Assert(line(UserMessage(err)), Not(Matches), ".*trace_test.go.*")
+	c.Assert(line(UserMessage(err)), Matches, ".*param.*")
 }
 
 func (s *TraceSuite) TestOrigError(c *C) {
@@ -60,20 +61,6 @@ func (s *TraceSuite) TestOrigError(c *C) {
 func (s *TraceSuite) TestIsEOF(c *C) {
 	c.Assert(IsEOF(io.EOF), Equals, true)
 	c.Assert(IsEOF(Wrap(io.EOF)), Equals, true)
-}
-
-func (s *TraceSuite) TestWrapMessage(c *C) {
-	testErr := fmt.Errorf("description")
-
-	err := Wrap(testErr)
-
-	SetDebug(true)
-	c.Assert(line(err.Error()), Matches, ".*trace_test.go.*")
-	c.Assert(line(err.Error()), Matches, ".*description.*")
-
-	SetDebug(false)
-	c.Assert(line(err.Error()), Not(Matches), ".*trace_test.go.*")
-	c.Assert(line(err.Error()), Matches, ".*description.*")
 }
 
 func (s *TraceSuite) TestWrapUserMessage(c *C) {
@@ -279,7 +266,7 @@ func (s *TraceSuite) TestGenericErrors(c *C) {
 
 		t := err.(*TraceErr)
 		c.Assert(len(t.Traces), Not(Equals), 0, comment)
-		c.Assert(line(err.Error()), Matches, "*.trace_test.go.*", comment)
+		c.Assert(line(DebugReport(err)), Matches, "*.trace_test.go.*", comment)
 		c.Assert(testCase.Predicate(err), Equals, true, comment)
 
 		w := newTestWriter()
@@ -353,9 +340,10 @@ func (s *TraceSuite) TestAggregateConvertsToCommonErrors(c *C) {
 		Predicate          func(error) bool
 		RoundtripPredicate func(error) bool
 		StatusCode         int
+		comment            string
 	}{
 		{
-			// Aggregate unwraps to first aggregated error
+			comment: "Aggregate unwraps to first aggregated error",
 			Err: NewAggregate(BadParameter("invalid value of foo"),
 				LimitExceeded("limit exceeded")),
 			Predicate:          IsAggregate,
@@ -363,7 +351,7 @@ func (s *TraceSuite) TestAggregateConvertsToCommonErrors(c *C) {
 			StatusCode:         http.StatusBadRequest,
 		},
 		{
-			// Nested aggregate unwraps recursively
+			comment: "Nested aggregate unwraps recursively",
 			Err: NewAggregate(NewAggregate(BadParameter("invalid value of foo"),
 				LimitExceeded("limit exceeded"))),
 			Predicate:          IsAggregate,
@@ -371,12 +359,12 @@ func (s *TraceSuite) TestAggregateConvertsToCommonErrors(c *C) {
 			StatusCode:         http.StatusBadRequest,
 		},
 	}
-	for i, testCase := range testCases {
-		comment := Commentf("test case #%v", i+1)
+	for _, testCase := range testCases {
+		comment := Commentf(testCase.comment)
 		SetDebug(true)
 		err := testCase.Err
 
-		c.Assert(line(err.Error()), Matches, "*.trace_test.go.*", comment)
+		c.Assert(line(DebugReport(err)), Matches, "*.trace_test.go.*", comment)
 		c.Assert(testCase.Predicate(err), Equals, true, comment)
 
 		w := newTestWriter()

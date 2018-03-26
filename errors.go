@@ -338,8 +338,8 @@ func IsLimitExceeded(e error) bool {
 // TrustError indicates trust-related validation error (e.g. untrusted cert)
 type TrustError struct {
 	// Err is original error
-	Err     error `json:"error"`
-	Message string
+	Err     error  `json:"-"`
+	Message string `json:"message"`
 }
 
 // Error returns log-friendly error description
