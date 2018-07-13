@@ -71,6 +71,10 @@ func (s *TrailSuite) TestConversion(c *C) {
 			Error:     trace.LimitExceeded("exceeded"),
 			Predicate: trace.IsLimitExceeded,
 		},
+		{
+			Error:     trace.NotImplemented("not implemented"),
+			Predicate: trace.IsNotImplemented,
+		},
 	}
 	for i, tc := range testCases {
 		comment := Commentf("test case #v", i+1)
