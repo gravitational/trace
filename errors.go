@@ -146,6 +146,42 @@ func IsBadParameter(e error) bool {
 	return ok
 }
 
+// NotImplemented returns a new instance of NotImplementedError
+func NotImplemented(message string, args ...interface{}) error {
+	return WrapWithMessage(&NotImplementedError{
+		Message: fmt.Sprintf(message, args...),
+	}, message, args...)
+}
+
+// NotImplementedError means that certain functionality hasn't been implemented yet
+type NotImplementedError struct {
+	Message string `json:"message"`
+}
+
+// Error returns log friendly description of an error
+func (e *NotImplementedError) Error() string {
+	return e.Message
+}
+
+// OrigError returns original error
+func (e *NotImplementedError) OrigError() error {
+	return e
+}
+
+// IsNotImplementedError indicates that this error is of NotImplementedError type
+func (e *NotImplementedError) IsNotImplementedError() bool {
+	return true
+}
+
+// IsNotImplemented returns whether this error is of NotImplementedError type
+func IsNotImplemented(e error) bool {
+	type ni interface {
+		IsNotImplementedError() bool
+	}
+	_, ok := Unwrap(e).(ni)
+	return ok
+}
+
 // CompareFailed returns new instance of CompareFailedError
 func CompareFailed(message string, args ...interface{}) error {
 	return WrapWithMessage(&CompareFailedError{Message: fmt.Sprintf(message, args...)}, message, args...)

@@ -257,6 +257,11 @@ func (s *TraceSuite) TestGenericErrors(c *C) {
 			Predicate:  IsLimitExceeded,
 			StatusCode: http.StatusTooManyRequests,
 		},
+		{
+			Err:        NotImplemented("not implemented"),
+			Predicate:  IsNotImplemented,
+			StatusCode: http.StatusNotImplemented,
+		},
 	}
 
 	for i, testCase := range testCases {

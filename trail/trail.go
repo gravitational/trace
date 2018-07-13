@@ -103,6 +103,9 @@ func ToGRPC(err error) error {
 	if trace.IsConnectionProblem(err) {
 		return grpc.Errorf(codes.Unavailable, userMessage)
 	}
+	if trace.IsNotImplemented(err) {
+		return grpc.Errorf(codes.Unimplemented, userMessage)
+	}
 	return grpc.Errorf(codes.Unknown, userMessage)
 }
 
@@ -132,6 +135,8 @@ func FromGRPC(err error, args ...interface{}) error {
 		e = &trace.LimitExceededError{Message: message}
 	case codes.Unavailable:
 		e = &trace.ConnectionProblemError{Message: message}
+	case codes.Unimplemented:
+		e = &trace.NotImplementedError{Message: message}
 	default:
 		e = errors.New(message)
 	}
