@@ -178,8 +178,8 @@ func IsNotImplemented(e error) bool {
 	type ni interface {
 		IsNotImplementedError() bool
 	}
-	_, ok := Unwrap(e).(ni)
-	return ok
+	err, ok := Unwrap(e).(ni)
+	return ok && err.IsNotImplementedError()
 }
 
 // CompareFailed returns new instance of CompareFailedError
