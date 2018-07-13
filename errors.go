@@ -153,7 +153,8 @@ func NotImplemented(message string, args ...interface{}) error {
 	}, message, args...)
 }
 
-// NotImplementedError means that certain functionality hasn't been implemented yet
+// NotImplementedError defines an error condition to describe the result
+// of a call to an unimplemented API
 type NotImplementedError struct {
 	Message string `json:"message"`
 }
