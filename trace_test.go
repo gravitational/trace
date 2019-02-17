@@ -1,5 +1,5 @@
 /*
-Copyright 2015 Gravitational, Inc.
+Copyright 2015-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -211,6 +211,79 @@ func (s *TraceSuite) TestTextFormatter(c *C) {
 		comment := Commentf("test case %v %v, expected match: %v", i+1, tc.comment, tc.match)
 		buf := &bytes.Buffer{}
 		log.SetOutput(buf)
+		tc.log()
+		c.Assert(line(buf.String()), Matches, tc.match, comment)
+	}
+}
+
+func (s *TraceSuite) TestTextFormatterWithColors(c *C) {
+	padding := 6
+	f := &TextFormatter{
+		DisableTimestamp: true,
+		ComponentPadding: padding,
+		EnableColors:     true,
+	}
+	log.SetFormatter(f)
+
+	type testCase struct {
+		log     func()
+		match   string
+		comment string
+	}
+
+	testCases := []testCase{
+		{
+			comment: "test info color",
+			log: func() {
+				log.WithFields(log.Fields{
+					Component: "test",
+				}).Info("hello")
+			},
+			match: `^\x1b\[36mINFO\x1b\[0m \[TEST\] hello.*`,
+		},
+		{
+			comment: "info color padding overflow",
+			log: func() {
+				log.WithFields(log.Fields{
+					Component: "longline",
+				}).Info("hello")
+			},
+			match: `^\x1b\[36mINFO\x1b\[0m \[LONG\] hello.*`,
+		},
+		{
+			comment: "test debug color",
+			log: func() {
+				log.WithFields(log.Fields{
+					Component: "test",
+				}).Debug("hello")
+			},
+			match: `^\x1b\[37mDEBU\x1b\[0m \[TEST\] hello.*`,
+		},
+		{
+			comment: "test warn color",
+			log: func() {
+				log.WithFields(log.Fields{
+					Component: "test",
+				}).Warning("hello")
+			},
+			match: `^\x1b\[33mWARN\x1b\[0m \[TEST\] hello.*`,
+		},
+		{
+			comment: "test error color",
+			log: func() {
+				log.WithFields(log.Fields{
+					Component: "test",
+				}).Error("hello")
+			},
+			match: `^\x1b\[31mERRO\x1b\[0m \[TEST\] hello.*`,
+		},
+	}
+
+	for i, tc := range testCases {
+		comment := Commentf("test case %v %v, expected match: %v", i+1, tc.comment, tc.match)
+		buf := &bytes.Buffer{}
+		log.SetOutput(buf)
+		log.SetLevel(log.DebugLevel)
 		tc.log()
 		c.Assert(line(buf.String()), Matches, tc.match, comment)
 	}
