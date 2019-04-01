@@ -19,6 +19,30 @@ const (
 // UDPOptionSetter represents functional arguments passed to ELKHook
 type UDPOptionSetter func(f *UDPHook)
 
+// ClientNet sets clientNet option in UDPHook
+// Usage: hook, err := NewUDPHook(ClientNet("tcp"))
+func ClientNet(clientNet string) UDPOptionSetter  {
+	return func(f *UDPHook) {
+		f.clientNet = clientNet
+	}
+}
+// ClientAddr sets clientAddr option in UDPHook
+// Usage: hook, err := NewUDPHook(ClientAddr("192.168.1.1:65000"))
+func ClientAddr(clientAddr string) UDPOptionSetter  {
+	return func(f *UDPHook) {
+		f.clientAddr = clientAddr
+	}
+}
+
+// Target sets clientNet and clientAddr option in UDPHook in one call
+// Usage: hook, err := NewUDPHook(Target("udp", "192.168.1.1:65000"))
+func Target(network, addr string) UDPOptionSetter {
+	return func(f *UDPHook) {
+		f.clientNet = network
+		f.clientAddr = addr
+	}
+}
+
 // NewUDPHook returns logrus-compatible hook that sends data to UDP socket
 func NewUDPHook(opts ...UDPOptionSetter) (*UDPHook, error) {
 	f := &UDPHook{}
@@ -57,7 +81,6 @@ type UDPHook struct {
 
 type Frame struct {
 	Time    time.Time              `json:"time"`
-	Type    string                 `json:"type"`
 	Entry   map[string]interface{} `json:"entry"`
 	Message string                 `json:"message"`
 	Level   string                 `json:"level"`
@@ -74,7 +97,6 @@ func (elk *UDPHook) Fire(e *log.Entry) error {
 	}
 	data, err := json.Marshal(Frame{
 		Time:    elk.Clock.Now().UTC(),
-		Type:    "trace",
 		Entry:   entry.Data,
 		Message: entry.Message,
 		Level:   entry.Level.String(),
@@ -89,7 +111,7 @@ func (elk *UDPHook) Fire(e *log.Entry) error {
 	}
 	defer conn.Close()
 
-	resolvedAddr, err := net.ResolveUDPAddr("udp", "127.0.0.1:5000")
+	resolvedAddr, err := net.ResolveUDPAddr(elk.clientNet, elk.clientAddr)
 	if err != nil {
 		return Wrap(err)
 	}
