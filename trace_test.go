@@ -96,14 +96,13 @@ func (s *TraceSuite) TestLogFormatter(c *C) {
 		log.SetFormatter(f)
 
 		// check case with global Infof
-		buf := &bytes.Buffer{}
-		log.SetOutput(buf)
+		var buf bytes.Buffer
+		log.SetOutput(&buf)
 		log.Infof("hello")
 		c.Assert(line(buf.String()), Matches, ".*trace_test.go.*")
 
 		// check case with embedded Infof
-		buf = &bytes.Buffer{}
-		log.SetOutput(buf)
+		buf.Reset()
 		log.WithFields(log.Fields{"a": "b"}).Infof("hello")
 		c.Assert(line(buf.String()), Matches, ".*trace_test.go.*")
 	}
