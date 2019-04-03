@@ -132,7 +132,7 @@ func Fatalf(format string, args ...interface{}) error {
 
 func newTrace(depth int, err error) *TraceErr {
 	var buf [32]uintptr
-	n := runtime.Callers(depth, buf[:])
+	n := runtime.Callers(depth+1, buf[:])
 	pcs := buf[:n]
 	frames := runtime.CallersFrames(pcs)
 	cursor := frameCursor{
@@ -145,19 +145,11 @@ func newTrace(depth int, err error) *TraceErr {
 func newTraceFromFrames(cursor frameCursor, err error) *TraceErr {
 	traces := make(Traces, 0, cursor.n)
 	if cursor.current != nil {
-		traces = append(traces, Trace{
-			Func: cursor.current.Function,
-			Path: cursor.current.File,
-			Line: cursor.current.Line,
-		})
+		traces = append(traces, frameToTrace(*cursor.current))
 	}
 	for {
 		frame, more := cursor.rest.Next()
-		traces = append(traces, Trace{
-			Func: frame.Function,
-			Path: frame.File,
-			Line: frame.Line,
-		})
+		traces = append(traces, frameToTrace(frame))
 		if !more {
 			break
 		}
@@ -165,6 +157,14 @@ func newTraceFromFrames(cursor frameCursor, err error) *TraceErr {
 	return &TraceErr{
 		Err:    err,
 		Traces: traces,
+	}
+}
+
+func frameToTrace(frame runtime.Frame) Trace {
+	return Trace{
+		Func: frame.Function,
+		Path: frame.File,
+		Line: frame.Line,
 	}
 }
 
