@@ -182,6 +182,11 @@ var frameIgnorePattern = regexp.MustCompile(`github\.com/(S|s)irupsen/logrus`)
 // and returns the rest of the stack frames
 func findFrame() *frameCursor {
 	var buf [32]uintptr
+	// Skip enough frames to start at user code.
+	// This number is a mere hint to the following loop
+	// to start as close to user code as possible and getting it right is not mandatory.
+	// The skip count might need to get updated if the call to findFrame is
+	// moved up/down the call stack
 	n := runtime.Callers(4, buf[:])
 	pcs := buf[:n]
 	frames := runtime.CallersFrames(pcs)
