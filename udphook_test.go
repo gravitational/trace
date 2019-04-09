@@ -18,14 +18,11 @@ package trace
 
 import (
 	"io/ioutil"
-	"testing"
 
 	"github.com/jonboulle/clockwork"
 	log "github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
 )
-
-func TestHooks(t *testing.T) { TestingT(t) }
 
 type HooksSuite struct{}
 
