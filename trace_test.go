@@ -408,7 +408,23 @@ func (s *TraceSuite) TestAggregates(c *C) {
 func (s *TraceSuite) TestErrorf(c *C) {
 	err := Errorf("error")
 	c.Assert(line(DebugReport(err)), Matches, "*.trace_test.go.*")
+	c.Assert(line(DebugReport(err)), Not(Matches), "*.Fields.*")
 	c.Assert(line(err.(*TraceErr).Message), Equals, "error")
+}
+
+func (s *TraceSuite) TestWithField(c *C) {
+	err := Wrap(Errorf("error")).AddField("testfield", true)
+	c.Assert(line(DebugReport(err)), Matches, "*.testfield.*")
+}
+
+func (s *TraceSuite) TestWithFields(c *C) {
+	err := Wrap(Errorf("error")).AddFields(map[string]interface{}{
+		"testfield1": true,
+		"testfield2": "value2",
+	})
+	c.Assert(line(DebugReport(err)), Matches, "*.Fields.*")
+	c.Assert(line(DebugReport(err)), Matches, "*.testfield1: true.*")
+	c.Assert(line(DebugReport(err)), Matches, "*.testfield2: value2.*")
 }
 
 func (s *TraceSuite) TestAggregateConvertsToCommonErrors(c *C) {

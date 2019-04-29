@@ -19,6 +19,7 @@ limitations under the License.
 package trace
 
 import (
+	"bytes"
 	"encoding/json"
 	"fmt"
 	"path/filepath"
@@ -26,6 +27,7 @@ import (
 	"strings"
 	"sync/atomic"
 
+	"github.com/alecthomas/template"
 	"golang.org/x/net/context"
 )
 
@@ -40,7 +42,7 @@ func SetDebug(enabled bool) {
 	}
 }
 
-// IsDebug returns true if debug mode is on, false otherwize
+// IsDebug returns true if debug mode is on, false otherwise
 func IsDebug() bool {
 	return atomic.LoadInt32(&debug) == 1
 }
@@ -252,7 +254,8 @@ func (t *Trace) String() string {
 type TraceErr struct {
 	Err     error `json:"error"`
 	Traces  `json:"traces"`
-	Message string `json:"message,omitemtpy"`
+	Message string                 `json:"message,omitempty"`
+	Fields  map[string]interface{} `json:"fields,omitempty`
 }
 
 type RawTrace struct {
@@ -271,6 +274,26 @@ func (e *TraceErr) AddUserMessage(formatArg interface{}, rest ...interface{}) {
 	}
 }
 
+func (e *TraceErr) AddFields(fields map[string]interface{}) *TraceErr {
+	if e.Fields == nil {
+		e.Fields = make(map[string]interface{}, len(fields))
+	}
+	for k, v := range fields {
+		e.Fields[k] = v
+	}
+	return e
+}
+
+func (e *TraceErr) AddField(k string, v interface{}) *TraceErr {
+	if e.Fields == nil {
+		e.Fields = make(map[string]interface{}, 1)
+	}
+
+	e.Fields[k] = v
+
+	return e
+}
+
 // UserMessage returns user-friendly error message
 func (e *TraceErr) UserMessage() string {
 	if e.Message != "" {
@@ -279,10 +302,39 @@ func (e *TraceErr) UserMessage() string {
 	return UserMessage(e.Err)
 }
 
-// DebugReport returns develeoper-friendly error report
+// DebugReport returns developer-friendly error report
 func (e *TraceErr) DebugReport() string {
-	return fmt.Sprintf("\nERROR REPORT:\nOriginal Error: %T %v\nStack Trace:\n%v\nUser Message: %v\n", e.Err, e.Err.Error(), e.Traces.String(), e.Message)
+	var buffer bytes.Buffer
+	err := reportTemplate.Execute(&buffer, struct {
+		OrigErrType    string
+		OrigErrMessage string
+		Fields         map[string]interface{}
+		StackTrace     string
+		UserMessage    string
+	}{
+		OrigErrType:    fmt.Sprintf("%T", e.Err),
+		OrigErrMessage: e.Err.Error(),
+		Fields:         e.Fields,
+		StackTrace:     e.Traces.String(),
+		UserMessage:    e.UserMessage(),
+	})
+	if err != nil {
+		return fmt.Sprint("Error generating debug report: ", err.Error())
+	}
+	return buffer.String()
 }
+
+var reportTemplate = template.Must(template.New("debugReport").Parse(reportTemplateText))
+var reportTemplateText = `
+ERROR REPORT:
+Original Error: {{.OrigErrType}} {{.OrigErrMessage}}
+{{if .Fields}}Fields: {{range $key, $value := .Fields}} \
+    {{$key}}: {{$value}}
+{{end}}{{end}} \
+Stack Trace:
+{{.StackTrace}}
+User Message: {{.UserMessage}}
+`
 
 // Error returns user-friendly error message when not in debug mode
 func (e *TraceErr) Error() string {
@@ -330,10 +382,16 @@ type Error interface {
 	// arguments as structured args
 	AddUserMessage(formatArg interface{}, rest ...interface{})
 
+	// AddField adds additional field information to the error
+	AddField(key string, value interface{}) *TraceErr
+
+	// AddFields adds a map of additional fields to the error
+	AddFields(fields map[string]interface{}) *TraceErr
+
 	// UserMessage returns user-friendly error message
 	UserMessage() string
 
-	// DebugReport returns develeoper-friendly error report
+	// DebugReport returns developer-friendly error report
 	DebugReport() string
 }
 
