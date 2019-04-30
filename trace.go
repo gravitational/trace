@@ -77,6 +77,25 @@ func UserMessage(err error) string {
 	return err.Error()
 }
 
+// UserMessageWithFields returns user-friendly error with key-pairs as part of the message
+func UserMessageWithFields(err error) string {
+	if err == nil {
+		return ""
+	}
+	if wrap, ok := err.(Error); ok {
+		if len(wrap.GetFields()) == 0 {
+			return wrap.UserMessage()
+		}
+
+		var kvps []string
+		for k, v := range wrap.GetFields() {
+			kvps = append(kvps, fmt.Sprintf("%v=\"%v\"", k, v))
+		}
+		return fmt.Sprintf("%v %v", strings.Join(kvps, " "), wrap.UserMessage())
+	}
+	return err.Error()
+}
+
 // DebugReport returns debug report with all known information
 // about the error including stack trace if it was captured
 func DebugReport(err error) string {
@@ -87,6 +106,17 @@ func DebugReport(err error) string {
 		return wrap.DebugReport()
 	}
 	return err.Error()
+}
+
+// GetFields returns any fields that have been added to the error message
+func GetFields(err error) map[string]interface{} {
+	if err == nil {
+		return map[string]interface{}{}
+	}
+	if wrap, ok := err.(Error); ok {
+		return wrap.GetFields()
+	}
+	return map[string]interface{}{}
 }
 
 // WrapWithMessage wraps the original error into Error and adds user message if any
@@ -341,6 +371,10 @@ func (e *TraceErr) Error() string {
 	return e.UserMessage()
 }
 
+func (e *TraceErr) GetFields() map[string]interface{} {
+	return e.Fields
+}
+
 // OrigError returns original wrapped error
 func (e *TraceErr) OrigError() error {
 	err := e.Err
@@ -393,6 +427,9 @@ type Error interface {
 
 	// DebugReport returns developer-friendly error report
 	DebugReport() string
+
+	// GetFields returns any fields that have been added to the error
+	GetFields() map[string]interface{}
 }
 
 // NewAggregate creates a new aggregate instance from the specified
