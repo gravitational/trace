@@ -42,7 +42,7 @@ func (s *TraceSuite) TestEmpty(c *C) {
 	c.Assert(DebugReport(nil), Equals, "")
 	c.Assert(UserMessage(nil), Equals, "")
 	c.Assert(UserMessageWithFields(nil), Equals, "")
-	c.Assert(GetFields(nil), IsNil)
+	c.Assert(GetFields(nil), DeepEquals, map[string]interface{}{})
 }
 
 func (s *TraceSuite) TestWrap(c *C) {
@@ -88,7 +88,7 @@ func (s *TraceSuite) TestUserMessageWithFields(c *C) {
 
 func (s *TraceSuite) TestGetFields(c *C) {
 	testErr := fmt.Errorf("description")
-	c.Assert(GetFields(testErr), IsNil)
+	c.Assert(GetFields(testErr), DeepEquals, map[string]interface{}{})
 
 	fields := map[string]interface{}{
 		"test_key": "test_value",
