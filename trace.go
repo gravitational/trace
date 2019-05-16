@@ -22,12 +22,12 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"html/template"
 	"path/filepath"
 	"runtime"
 	"strings"
 	"sync/atomic"
 
-	"github.com/alecthomas/template"
 	"golang.org/x/net/context"
 )
 
@@ -89,7 +89,7 @@ func UserMessageWithFields(err error) string {
 
 		var kvps []string
 		for k, v := range wrap.GetFields() {
-			kvps = append(kvps, fmt.Sprintf("%v=\"%v\"", k, v))
+			kvps = append(kvps, fmt.Sprintf("%v=%q", k, v))
 		}
 		return fmt.Sprintf("%v %v", strings.Join(kvps, " "), wrap.UserMessage())
 	}
@@ -282,10 +282,14 @@ func (t *Trace) String() string {
 // TraceErr contains error message and some additional
 // information about the error origin
 type TraceErr struct {
-	Err     error `json:"error"`
-	Traces  `json:"traces"`
-	Message string                 `json:"message,omitempty"`
-	Fields  map[string]interface{} `json:"fields,omitempty`
+	// Err is the underlying error that TraceErr wraps
+	Err error `json:"error"`
+	// Traces is a slice of stack trace entries for the error
+	Traces `json:"traces"`
+	// Message is an optional message that can be wrapped with the original error
+	Message string `json:"message,omitempty"`
+	// Fields is a list of key-value-pairs that can be wrapped with the error to give additional context
+	Fields map[string]interface{} `json:"fields,omitempty`
 }
 
 type RawTrace struct {
@@ -304,6 +308,7 @@ func (e *TraceErr) AddUserMessage(formatArg interface{}, rest ...interface{}) {
 	}
 }
 
+// AddFields adds the given map of fields to the error being reported
 func (e *TraceErr) AddFields(fields map[string]interface{}) *TraceErr {
 	if e.Fields == nil {
 		e.Fields = make(map[string]interface{}, len(fields))
@@ -314,6 +319,7 @@ func (e *TraceErr) AddFields(fields map[string]interface{}) *TraceErr {
 	return e
 }
 
+// AddField adds a single field to the error wrapper as context for the error
 func (e *TraceErr) AddField(k string, v interface{}) *TraceErr {
 	if e.Fields == nil {
 		e.Fields = make(map[string]interface{}, 1)
@@ -349,7 +355,7 @@ func (e *TraceErr) DebugReport() string {
 		UserMessage:    e.UserMessage(),
 	})
 	if err != nil {
-		return fmt.Sprint("Error generating debug report: ", err.Error())
+		return fmt.Sprint("error generating debug report: ", err.Error())
 	}
 	return buffer.String()
 }
@@ -358,10 +364,9 @@ var reportTemplate = template.Must(template.New("debugReport").Parse(reportTempl
 var reportTemplateText = `
 ERROR REPORT:
 Original Error: {{.OrigErrType}} {{.OrigErrMessage}}
-{{if .Fields}}Fields: {{range $key, $value := .Fields}} \
-    {{$key}}: {{$value}}
-{{end}}{{end}} \
-Stack Trace:
+{{if .Fields}}Fields: 
+{{range $key, $value := .Fields}}  {{$key}}: {{$value}}
+{{end}}{{end}}Stack Trace:
 {{.StackTrace}}
 User Message: {{.UserMessage}}
 `
