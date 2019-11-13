@@ -285,7 +285,7 @@ func ConvertSystemError(err error) error {
 			Message: message,
 		}, message)
 	case x509.SystemRootsError, x509.UnknownAuthorityError:
-		return wrapWithDepth(&TrustError{Err: innerError}, 2)
+		return newTrace(&TrustError{Err: innerError}, 2)
 	}
 	if _, ok := innerError.(net.Error); ok {
 		return WrapWithMessage(&ConnectionProblemError{

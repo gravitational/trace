@@ -25,6 +25,7 @@ import (
 	"html/template"
 	"path/filepath"
 	"runtime"
+	// runtimedebug "runtime/debug"
 	"strings"
 	"sync/atomic"
 
@@ -42,28 +43,73 @@ func SetDebug(enabled bool) {
 	}
 }
 
-// IsDebug returns true if debug mode is on, false otherwise
+// IsDebug returns true if debug mode is on
 func IsDebug() bool {
 	return atomic.LoadInt32(&debug) == 1
+}
+
+// WrapProxy wraps the specified error ...
+func WrapProxy(err error, args ...interface{}) Error {
+	// TODO(dmitri): args
+	if err == nil {
+		return nil
+	}
+	return newTrace(proxyError{
+		err: err,
+	}, 2)
+}
+
+// Implements DebugReporter
+func (r proxyError) DebugReport() string {
+	return DebugReport(r.err)
+}
+
+// OrigError returns the original error.
+// Implements WrappingError
+func (r proxyError) OrigError() error {
+	return r.err
+}
+
+func (r proxyError) Error() string {
+	// FIXME
+	return r.err.Error()
+}
+
+type proxyError struct {
+	err error
 }
 
 // Wrap takes the original error and wraps it into the Trace struct
 // memorizing the context of the error.
 func Wrap(err error, args ...interface{}) Error {
+	if err == nil {
+		return nil
+	}
 	if len(args) > 0 {
 		format := args[0]
 		args = args[1:]
 		return WrapWithMessage(err, format, args...)
 	}
-	return wrapWithDepth(err, 2)
+	if traceErr, ok := err.(Error); ok {
+		return traceErr
+	}
+	return newTrace(err, 2)
 }
 
 // Unwrap unwraps error to it's original error
 func Unwrap(err error) error {
-	if terr, ok := err.(Error); ok {
-		return terr.OrigError()
+	if err, ok := err.(WrappingError); ok {
+		return err.OrigError()
 	}
 	return err
+}
+
+type WrappingError interface {
+	OrigError() error
+}
+
+type DebugReporter interface {
+	DebugReport() string
 }
 
 // UserMessage returns user-friendly part of the error
@@ -102,8 +148,8 @@ func DebugReport(err error) string {
 	if err == nil {
 		return ""
 	}
-	if wrap, ok := err.(Error); ok {
-		return wrap.DebugReport()
+	if reporter, ok := err.(DebugReporter); ok {
+		return reporter.DebugReport()
 	}
 	return err.Error()
 }
@@ -121,24 +167,13 @@ func GetFields(err error) map[string]interface{} {
 
 // WrapWithMessage wraps the original error into Error and adds user message if any
 func WrapWithMessage(err error, message interface{}, args ...interface{}) Error {
-	trace := wrapWithDepth(err, 3)
-	if trace != nil {
-		trace.AddUserMessage(message, args...)
-	}
-	return trace
-}
-
-func wrapWithDepth(err error, depth int) Error {
-	if err == nil {
-		return nil
-	}
 	var trace Error
-	if wrapped, ok := err.(Error); ok {
-		trace = wrapped
+	if traceErr, ok := err.(Error); ok {
+		trace = traceErr
 	} else {
-		trace = newTrace(depth+1, err)
+		trace = newTrace(err, 3)
 	}
-
+	trace.AddUserMessage(message, args...)
 	return trace
 }
 
@@ -147,7 +182,7 @@ func wrapWithDepth(err error, depth int) Error {
 // callee, line number and function that simplifies debugging
 func Errorf(format string, args ...interface{}) (err error) {
 	err = fmt.Errorf(format, args...)
-	trace := wrapWithDepth(err, 2)
+	trace := newTrace(err, 2)
 	trace.AddUserMessage(format, args...)
 	return trace
 }
@@ -162,7 +197,7 @@ func Fatalf(format string, args ...interface{}) error {
 	}
 }
 
-func newTrace(depth int, err error) *TraceErr {
+func newTrace(err error, depth int) *TraceErr {
 	var buf [32]uintptr
 	n := runtime.Callers(depth+1, buf[:])
 	pcs := buf[:n]
@@ -361,20 +396,25 @@ func (e *TraceErr) UserMessage() string {
 
 // DebugReport returns developer-friendly error report
 func (e *TraceErr) DebugReport() string {
-	var buffer bytes.Buffer
-	err := reportTemplate.Execute(&buffer, struct {
+	var errorReport = struct {
 		OrigErrType    string
 		OrigErrMessage string
 		Fields         map[string]interface{}
 		StackTrace     string
 		UserMessage    string
+		CausedBy       string
 	}{
 		OrigErrType:    fmt.Sprintf("%T", e.Err),
 		OrigErrMessage: e.Err.Error(),
 		Fields:         e.Fields,
 		StackTrace:     e.Traces.String(),
 		UserMessage:    e.UserMessage(),
-	})
+	}
+	if reporter, ok := e.Err.(DebugReporter); ok {
+		errorReport.CausedBy = reporter.DebugReport()
+	}
+	var buffer bytes.Buffer
+	err := reportTemplate.Execute(&buffer, errorReport)
 	if err != nil {
 		return fmt.Sprint("error generating debug report: ", err.Error())
 	}
@@ -389,8 +429,7 @@ Original Error: {{.OrigErrType}} {{.OrigErrMessage}}
 {{range $key, $value := .Fields}}  {{$key}}: {{$value}}
 {{end}}{{end}}Stack Trace:
 {{.StackTrace}}
-User Message: {{.UserMessage}}
-`
+{{if .CausedBy}}caused by:{{.CausedBy}}{{else}}User Message: {{.UserMessage}}{{end}}`
 
 // Error returns user-friendly error message when not in debug mode
 func (e *TraceErr) Error() string {
@@ -419,11 +458,11 @@ func (e *TraceErr) OrigError() error {
 	return err
 }
 
-// GoString formats this trace object for use with
-// with the "%#v" format string
-func (e *TraceErr) GoString() string {
-	return e.DebugReport()
-}
+// // GoString formats this trace object for use with
+// // with the "%#v" format string
+// func (e *TraceErr) GoString() string {
+// 	return e.DebugReport()
+// }
 
 // maxHops is a max supported nested depth for errors
 const maxHops = 50
@@ -433,8 +472,9 @@ const maxHops = 50
 // So error handlers can use OrigError() to retrieve error from the wrapper
 type Error interface {
 	error
-	// OrigError returns original error wrapped in this error
-	OrigError() error
+	WrappingError
+	DebugReporter
+
 	// AddMessage adds formatted user-facing message
 	// to the error, depends on the implementation,
 	// usually works as fmt.Sprintf(formatArg, rest...)
@@ -450,9 +490,6 @@ type Error interface {
 
 	// UserMessage returns user-friendly error message
 	UserMessage() string
-
-	// DebugReport returns developer-friendly error report
-	DebugReport() string
 
 	// GetFields returns any fields that have been added to the error
 	GetFields() map[string]interface{}
@@ -471,7 +508,7 @@ func NewAggregate(errs ...error) error {
 	if len(nonNils) == 0 {
 		return nil
 	}
-	return wrapWithDepth(aggregate(nonNils), 2)
+	return newTrace(aggregate(nonNils), 2)
 }
 
 // NewAggregateFromChannel creates a new aggregate instance from the provided
@@ -530,3 +567,8 @@ func IsAggregate(err error) bool {
 	_, ok := Unwrap(err).(Aggregate)
 	return ok
 }
+
+var _ Error = (*TraceErr)(nil)
+var _ WrappingError = (*TraceErr)(nil)
+var _ DebugReporter = (*TraceErr)(nil)
+var _ error = (*TraceErr)(nil)
