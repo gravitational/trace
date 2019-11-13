@@ -25,7 +25,6 @@ import (
 	"html/template"
 	"path/filepath"
 	"runtime"
-	// runtimedebug "runtime/debug"
 	"strings"
 	"sync/atomic"
 
@@ -59,6 +58,7 @@ func WrapProxy(err error, args ...interface{}) Error {
 	}, 2)
 }
 
+// DebugReport formats the underlying error for display
 // Implements DebugReporter
 func (r proxyError) DebugReport() string {
 	return DebugReport(r.err)
@@ -70,11 +70,52 @@ func (r proxyError) OrigError() error {
 	return r.err
 }
 
+// Error returns the error message of the underlying error
 func (r proxyError) Error() string {
-	// FIXME
 	return r.err.Error()
 }
 
+func (r proxyError) IsNotFoundError() bool {
+	return IsNotFound(r.err)
+}
+
+func (r proxyError) IsBadParameterError() bool {
+	return IsBadParameter(r.err)
+}
+
+func (r proxyError) IsNotImplementedError() bool {
+	return IsNotImplemented(r.err)
+}
+
+func (r proxyError) IsCompareFailedError() bool {
+	return IsCompareFailed(r.err)
+}
+
+func (r proxyError) IsLimitExceededError() bool {
+	return IsLimitExceeded(r.err)
+}
+
+func (r proxyError) IsAccessDeniedError() bool {
+	return IsAccessDenied(r.err)
+}
+
+func (r proxyError) IsAlreadyExistsError() bool {
+	return IsAlreadyExists(r.err)
+}
+
+func (r proxyError) IsTrustErrorError() bool {
+	return IsTrustError(r.err)
+}
+
+func (r proxyError) IsOAuth2Error() bool {
+	return IsOAuth2(r.err)
+}
+
+func (r proxyError) IsConnectionProblemError() bool {
+	return IsConnectionProblem(r.err)
+}
+
+// proxyError wraps another error
 type proxyError struct {
 	err error
 }
@@ -96,19 +137,23 @@ func Wrap(err error, args ...interface{}) Error {
 	return newTrace(err, 2)
 }
 
-// Unwrap unwraps error to it's original error
+// Unwrap returns the original error the given error wraps
 func Unwrap(err error) error {
-	if err, ok := err.(WrappingError); ok {
+	if err, ok := err.(ErrorWrapper); ok {
 		return err.OrigError()
 	}
 	return err
 }
 
-type WrappingError interface {
+// ErrorWrapper wraps another error
+type ErrorWrapper interface {
+	// OrigError returns the wrapped error
 	OrigError() error
 }
 
+// DebugReporter formats an error for display
 type DebugReporter interface {
+	// DebugReport formats an error for display
 	DebugReport() string
 }
 
@@ -472,7 +517,7 @@ const maxHops = 50
 // So error handlers can use OrigError() to retrieve error from the wrapper
 type Error interface {
 	error
-	WrappingError
+	ErrorWrapper
 	DebugReporter
 
 	// AddMessage adds formatted user-facing message
@@ -567,8 +612,3 @@ func IsAggregate(err error) bool {
 	_, ok := Unwrap(err).(Aggregate)
 	return ok
 }
-
-var _ Error = (*TraceErr)(nil)
-var _ WrappingError = (*TraceErr)(nil)
-var _ DebugReporter = (*TraceErr)(nil)
-var _ error = (*TraceErr)(nil)

@@ -369,7 +369,7 @@ func (s *TraceSuite) TestGenericErrors(c *C) {
 		},
 	}
 
-	for _, testCase := range testCases[:1] {
+	for _, testCase := range testCases {
 		comment := Commentf(testCase.comment)
 		SetDebug(true)
 		err := testCase.Err
@@ -387,12 +387,11 @@ func (s *TraceSuite) TestGenericErrors(c *C) {
 		WriteError(w, err)
 
 		outerr := ReadError(w.StatusCode, w.Body)
-		proxyErr := WrapProxy(outerr)
-
-		c.Assert(testCase.Predicate(outerr), Equals, true, comment)
 		if traceErr, ok = outerr.(*TraceErr); !ok {
 			c.Fatal("Expected outerr to be of type *TraceErr")
 		}
+		proxyErr := WrapProxy(outerr)
+		c.Assert(testCase.Predicate(proxyErr), Equals, true, comment)
 		c.Assert(len(traceErr.Traces), Not(Equals), 0, comment)
 
 		SetDebug(false)

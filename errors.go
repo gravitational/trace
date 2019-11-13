@@ -56,16 +56,14 @@ func (e *NotFoundError) OrigError() error {
 }
 
 // IsNotFound returns whether this error is of NotFoundError type
-func IsNotFound(e error) bool {
-	type nf interface {
+func IsNotFound(err error) bool {
+	_, ok := Unwrap(err).(interface {
 		IsNotFoundError() bool
-	}
-	err := Unwrap(e)
-	_, ok := err.(nf)
+	})
 	if !ok {
 		return os.IsNotExist(err)
 	}
-	return ok
+	return true
 }
 
 // AlreadyExists returns a new instance of AlreadyExists error
@@ -252,11 +250,10 @@ func (e *AccessDeniedError) OrigError() error {
 }
 
 // IsAccessDenied detects if this error is of AccessDeniedError type
-func IsAccessDenied(e error) bool {
-	type ad interface {
+func IsAccessDenied(err error) bool {
+	_, ok := Unwrap(err).(interface {
 		IsAccessDeniedError() bool
-	}
-	_, ok := Unwrap(e).(ad)
+	})
 	return ok
 }
 
