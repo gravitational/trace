@@ -387,8 +387,6 @@ func (s *TraceSuite) TestGenericErrors(c *C) {
 		WriteError(w, err)
 
 		outErr := ReadError(w.StatusCode, w.Body)
-		c.Logf("Before wire: %s.\n", DebugReport(err))
-		c.Logf("After wire: %s.\n", DebugReport(outErr))
 		if _, ok := outErr.(proxyError); !ok {
 			c.Fatal("Expected error to be of type proxyError")
 		}

@@ -300,21 +300,19 @@ type TraceErr struct {
 	// Messages is a list of user messages added to this error.
 	Messages []string `json:"messages,omitempty"`
 	// Fields is a list of key-value-pairs that can be wrapped with the error to give additional context
-	Fields map[string]interface{} `json:"fields,omitempty`
+	Fields map[string]interface{} `json:"fields,omitempty"`
 }
 
 // Fields maps arbitrary keys to values inside an error
 type Fields map[string]interface{}
 
-// RawTrace is the trace error that gets passed over the wire.
+// RawTrace describes the error trace on the wire
 type RawTrace struct {
-	// Err is the json-encoded error.
-	Err json.RawMessage `json:"error"`
-	// Traces represents the error callstack.
-	Traces `json:"traces"`
-	// Message is the user message.
-	//
-	// This field is obsolete, replaced by messages list below.
+	// Err specifies the original error
+	Err json.RawMessage `json:"error,omitempty"`
+	// Traces lists the stack traces at the moment the error was recorded
+	Traces `json:"traces,omitempty"`
+	// Message specifies the optional user-facing message
 	Message string `json:"message"`
 	// Messages is a list of user messages added to this error.
 	Messages []string `json:"messages"`

@@ -57,29 +57,29 @@ func ErrorToCode(err error) int {
 // based on HTTP response code and HTTP body contents
 // if status code does not indicate error, it will return nil
 func ReadError(statusCode int, respBytes []byte) error {
+	if statusCode >= http.StatusOK && statusCode < http.StatusBadRequest {
+		return nil
+	}
 	var err error
 	switch statusCode {
 	case http.StatusNotFound:
-		err = &NotFoundError{Message: string(respBytes)}
+		err = &NotFoundError{}
 	case http.StatusBadRequest:
-		err = &BadParameterError{Message: string(respBytes)}
+		err = &BadParameterError{}
 	case http.StatusNotImplemented:
-		err = &NotImplementedError{Message: string(respBytes)}
+		err = &NotImplementedError{}
 	case http.StatusPreconditionFailed:
-		err = &CompareFailedError{Message: string(respBytes)}
+		err = &CompareFailedError{}
 	case http.StatusForbidden:
-		err = &AccessDeniedError{Message: string(respBytes)}
+		err = &AccessDeniedError{}
 	case http.StatusConflict:
-		err = &AlreadyExistsError{Message: string(respBytes)}
+		err = &AlreadyExistsError{}
 	case http.StatusTooManyRequests:
-		err = &LimitExceededError{Message: string(respBytes)}
+		err = &LimitExceededError{}
 	case http.StatusGatewayTimeout:
-		err = &ConnectionProblemError{Message: string(respBytes)}
+		err = &ConnectionProblemError{}
 	default:
-		if statusCode < 200 || statusCode >= 400 {
-			return wrapProxy(Errorf(string(respBytes)))
-		}
-		return nil
+		err = &externalError{}
 	}
 	return wrapProxy(unmarshalError(err, respBytes))
 }
@@ -94,7 +94,7 @@ func replyJSON(w http.ResponseWriter, code int, err error) {
 		// otherwise capture error message and marshal it explicitly
 		var obj interface{} = err
 		if _, ok := err.(*TraceErr); !ok {
-			obj = message{Message: err.Error()}
+			obj = externalError{Message: err.Error()}
 		}
 		out, err = json.MarshalIndent(obj, "", "    ")
 		if err != nil {
@@ -105,12 +105,21 @@ func replyJSON(w http.ResponseWriter, code int, err error) {
 		if terr, ok := err.(Error); ok {
 			innerError = terr.OrigError()
 		}
-		out, err = json.Marshal(message{Message: innerError.Error()})
+		out, err = json.Marshal(externalError{Message: innerError.Error()})
+		if err != nil {
+			out = []byte(fmt.Sprintf(`{"message": "internal marshal error: %v"}`, err))
+		}
 	}
 	w.Write(out)
 }
 
-type message struct {
+// Error returns the underlying message
+func (r *externalError) Error() string {
+	return r.Message
+}
+
+type externalError struct {
+	// Message specifies the error message
 	Message string `json:"message"`
 }
 
