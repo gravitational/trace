@@ -377,7 +377,7 @@ func (s *TraceSuite) TestGenericErrors(c *C) {
 		var traceErr *TraceErr
 		var ok bool
 		if traceErr, ok = err.(*TraceErr); !ok {
-			c.Fatal("Expected err to be of type *TraceErr")
+			c.Fatal("Expected error to be of type *TraceErr")
 		}
 		c.Assert(len(traceErr.Traces), Not(Equals), 0, comment)
 		c.Assert(line(DebugReport(err)), Matches, "*.trace_test.go.*", comment)
@@ -386,19 +386,19 @@ func (s *TraceSuite) TestGenericErrors(c *C) {
 		w := newTestWriter()
 		WriteError(w, err)
 
-		outerr := ReadError(w.StatusCode, w.Body)
-		if traceErr, ok = outerr.(*TraceErr); !ok {
-			c.Fatal("Expected outerr to be of type *TraceErr")
+		outErr := ReadError(w.StatusCode, w.Body)
+		c.Logf("Before wire: %s.\n", DebugReport(err))
+		c.Logf("After wire: %s.\n", DebugReport(outErr))
+		if _, ok := outErr.(proxyError); !ok {
+			c.Fatal("Expected error to be of type proxyError")
 		}
-		proxyErr := WrapProxy(outerr)
-		c.Assert(testCase.Predicate(proxyErr), Equals, true, comment)
-		c.Assert(len(traceErr.Traces), Not(Equals), 0, comment)
+		c.Assert(testCase.Predicate(outErr), Equals, true, comment)
 
 		SetDebug(false)
 		w = newTestWriter()
 		WriteError(w, err)
-		outerr = ReadError(w.StatusCode, w.Body)
-		c.Assert(testCase.Predicate(outerr), Equals, true, comment)
+		outErr = ReadError(w.StatusCode, w.Body)
+		c.Assert(testCase.Predicate(outErr), Equals, true, comment)
 	}
 }
 
@@ -509,17 +509,14 @@ func (s *TraceSuite) TestAggregateConvertsToCommonErrors(c *C) {
 
 		w := newTestWriter()
 		WriteError(w, err)
-		outerr := ReadError(w.StatusCode, w.Body)
-		c.Assert(testCase.RoundtripPredicate(outerr), Equals, true, comment)
-
-		t := outerr.(*TraceErr)
-		c.Assert(len(t.Traces), Not(Equals), 0, comment)
+		outErr := ReadError(w.StatusCode, w.Body)
+		c.Assert(testCase.RoundtripPredicate(outErr), Equals, true, comment)
 
 		SetDebug(false)
 		w = newTestWriter()
 		WriteError(w, err)
-		outerr = ReadError(w.StatusCode, w.Body)
-		c.Assert(testCase.RoundtripPredicate(outerr), Equals, true, comment)
+		outErr = ReadError(w.StatusCode, w.Body)
+		c.Assert(testCase.RoundtripPredicate(outErr), Equals, true, comment)
 	}
 }
 

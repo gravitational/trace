@@ -56,32 +56,32 @@ func ErrorToCode(err error) int {
 // ReadError converts http error to internal error type
 // based on HTTP response code and HTTP body contents
 // if status code does not indicate error, it will return nil
-func ReadError(statusCode int, re []byte) error {
-	var e error
+func ReadError(statusCode int, respBytes []byte) error {
+	var err error
 	switch statusCode {
 	case http.StatusNotFound:
-		e = &NotFoundError{Message: string(re)}
+		err = &NotFoundError{Message: string(respBytes)}
 	case http.StatusBadRequest:
-		e = &BadParameterError{Message: string(re)}
+		err = &BadParameterError{Message: string(respBytes)}
 	case http.StatusNotImplemented:
-		e = &NotImplementedError{Message: string(re)}
+		err = &NotImplementedError{Message: string(respBytes)}
 	case http.StatusPreconditionFailed:
-		e = &CompareFailedError{Message: string(re)}
+		err = &CompareFailedError{Message: string(respBytes)}
 	case http.StatusForbidden:
-		e = &AccessDeniedError{Message: string(re)}
+		err = &AccessDeniedError{Message: string(respBytes)}
 	case http.StatusConflict:
-		e = &AlreadyExistsError{Message: string(re)}
+		err = &AlreadyExistsError{Message: string(respBytes)}
 	case http.StatusTooManyRequests:
-		e = &LimitExceededError{Message: string(re)}
+		err = &LimitExceededError{Message: string(respBytes)}
 	case http.StatusGatewayTimeout:
-		e = &ConnectionProblemError{Message: string(re)}
+		err = &ConnectionProblemError{Message: string(respBytes)}
 	default:
 		if statusCode < 200 || statusCode >= 400 {
-			return Errorf(string(re))
+			return wrapProxy(Errorf(string(respBytes)))
 		}
 		return nil
 	}
-	return unmarshalError(e, re)
+	return wrapProxy(unmarshalError(err, respBytes))
 }
 
 func replyJSON(w http.ResponseWriter, code int, err error) {

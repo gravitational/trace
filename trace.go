@@ -47,79 +47,6 @@ func IsDebug() bool {
 	return atomic.LoadInt32(&debug) == 1
 }
 
-// WrapProxy wraps the specified error ...
-func WrapProxy(err error, args ...interface{}) Error {
-	// TODO(dmitri): args
-	if err == nil {
-		return nil
-	}
-	return newTrace(proxyError{
-		err: err,
-	}, 2)
-}
-
-// DebugReport formats the underlying error for display
-// Implements DebugReporter
-func (r proxyError) DebugReport() string {
-	return DebugReport(r.err)
-}
-
-// OrigError returns the original error.
-// Implements WrappingError
-func (r proxyError) OrigError() error {
-	return r.err
-}
-
-// Error returns the error message of the underlying error
-func (r proxyError) Error() string {
-	return r.err.Error()
-}
-
-func (r proxyError) IsNotFoundError() bool {
-	return IsNotFound(r.err)
-}
-
-func (r proxyError) IsBadParameterError() bool {
-	return IsBadParameter(r.err)
-}
-
-func (r proxyError) IsNotImplementedError() bool {
-	return IsNotImplemented(r.err)
-}
-
-func (r proxyError) IsCompareFailedError() bool {
-	return IsCompareFailed(r.err)
-}
-
-func (r proxyError) IsLimitExceededError() bool {
-	return IsLimitExceeded(r.err)
-}
-
-func (r proxyError) IsAccessDeniedError() bool {
-	return IsAccessDenied(r.err)
-}
-
-func (r proxyError) IsAlreadyExistsError() bool {
-	return IsAlreadyExists(r.err)
-}
-
-func (r proxyError) IsTrustErrorError() bool {
-	return IsTrustError(r.err)
-}
-
-func (r proxyError) IsOAuth2Error() bool {
-	return IsOAuth2(r.err)
-}
-
-func (r proxyError) IsConnectionProblemError() bool {
-	return IsConnectionProblem(r.err)
-}
-
-// proxyError wraps another error
-type proxyError struct {
-	err error
-}
-
 // Wrap takes the original error and wraps it into the Trace struct
 // memorizing the context of the error.
 func Wrap(err error, args ...interface{}) Error {
@@ -441,40 +368,19 @@ func (e *TraceErr) UserMessage() string {
 
 // DebugReport returns developer-friendly error report
 func (e *TraceErr) DebugReport() string {
-	var errorReport = struct {
-		OrigErrType    string
-		OrigErrMessage string
-		Fields         map[string]interface{}
-		StackTrace     string
-		UserMessage    string
-		CausedBy       string
-	}{
+	var buf bytes.Buffer
+	err := reportTemplate.Execute(&buf, errorReport{
 		OrigErrType:    fmt.Sprintf("%T", e.Err),
 		OrigErrMessage: e.Err.Error(),
 		Fields:         e.Fields,
 		StackTrace:     e.Traces.String(),
 		UserMessage:    e.UserMessage(),
-	}
-	if reporter, ok := e.Err.(DebugReporter); ok {
-		errorReport.CausedBy = reporter.DebugReport()
-	}
-	var buffer bytes.Buffer
-	err := reportTemplate.Execute(&buffer, errorReport)
+	})
 	if err != nil {
 		return fmt.Sprint("error generating debug report: ", err.Error())
 	}
-	return buffer.String()
+	return buf.String()
 }
-
-var reportTemplate = template.Must(template.New("debugReport").Parse(reportTemplateText))
-var reportTemplateText = `
-ERROR REPORT:
-Original Error: {{.OrigErrType}} {{.OrigErrMessage}}
-{{if .Fields}}Fields:
-{{range $key, $value := .Fields}}  {{$key}}: {{$value}}
-{{end}}{{end}}Stack Trace:
-{{.StackTrace}}
-{{if .CausedBy}}caused by:{{.CausedBy}}{{else}}User Message: {{.UserMessage}}{{end}}`
 
 // Error returns user-friendly error message when not in debug mode
 func (e *TraceErr) Error() string {
@@ -503,11 +409,11 @@ func (e *TraceErr) OrigError() error {
 	return err
 }
 
-// // GoString formats this trace object for use with
-// // with the "%#v" format string
-// func (e *TraceErr) GoString() string {
-// 	return e.DebugReport()
-// }
+// GoString formats this trace object for use with
+// with the "%#v" format string
+func (e *TraceErr) GoString() string {
+	return e.DebugReport()
+}
 
 // maxHops is a max supported nested depth for errors
 const maxHops = 50
@@ -612,3 +518,80 @@ func IsAggregate(err error) bool {
 	_, ok := Unwrap(err).(Aggregate)
 	return ok
 }
+
+// wrapProxy wraps the specified error as a new error trace
+func wrapProxy(err error) Error {
+	if err == nil {
+		return nil
+	}
+	return proxyError{
+		// Do not include ReadError in the trace
+		TraceErr: newTrace(err, 3),
+	}
+}
+
+// DebugReport formats the underlying error for display
+// Implements DebugReporter
+func (r proxyError) DebugReport() string {
+	var wrappedErr *TraceErr
+	var ok bool
+	if wrappedErr, ok = r.TraceErr.Err.(*TraceErr); !ok {
+		return DebugReport(r.TraceErr)
+	}
+	var buf bytes.Buffer
+	//nolint:errcheck
+	reportTemplate.Execute(&buf, errorReport{
+		OrigErrType:    fmt.Sprintf("%T", wrappedErr.Err),
+		OrigErrMessage: wrappedErr.Err.Error(),
+		Fields:         wrappedErr.Fields,
+		StackTrace:     wrappedErr.Traces.String(),
+		UserMessage:    wrappedErr.UserMessage(),
+		Caught:         r.TraceErr.Traces.String(),
+	})
+	return buf.String()
+}
+
+// OrigError returns the original error.
+// Implements WrappingError
+func (r proxyError) OrigError() error {
+	return r.TraceErr.OrigError()
+}
+
+// Error returns the error message of the underlying error
+func (r proxyError) Error() string {
+	return r.TraceErr.Error()
+}
+
+// proxyError wraps another error
+type proxyError struct {
+	*TraceErr
+}
+
+type errorReport struct {
+	// OrigErrType specifies the error type as text
+	OrigErrType string
+	// OrigErrMessage specifies the original error's message
+	OrigErrMessage string
+	// Fields lists any additional fields attached to the error
+	Fields map[string]interface{}
+	// StackTrace specifies the call stack
+	StackTrace string
+	// UserMessage is the user-facing message (if any)
+	UserMessage string
+	// Caught optionally specifies the stack trace where the exception
+	// has been caught (if the exception was transmitted over the wire)
+	Caught string
+}
+
+var reportTemplate = template.Must(template.New("debugReport").Parse(reportTemplateText))
+var reportTemplateText = `
+ERROR REPORT:
+Original Error: {{.OrigErrType}} {{.OrigErrMessage}}
+{{if .Fields}}Fields:
+{{range $key, $value := .Fields}}  {{$key}}: {{$value}}
+{{end}}{{end}}Stack Trace:
+{{.StackTrace}}
+{{if .Caught}}caught:
+{{.Caught}}
+User Message: {{.UserMessage}}
+{{else}}User Message: {{.UserMessage}}{{end}}`
