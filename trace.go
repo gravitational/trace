@@ -576,8 +576,8 @@ type errorReport struct {
 	StackTrace string
 	// UserMessage is the user-facing message (if any)
 	UserMessage string
-	// Caught optionally specifies the stack trace where the exception
-	// has been caught (if the exception was transmitted over the wire)
+	// Caught optionally specifies the stack trace where the error
+	// has been recorded after coming over the wire
 	Caught string
 }
 
@@ -589,7 +589,7 @@ Original Error: {{.OrigErrType}} {{.OrigErrMessage}}
 {{range $key, $value := .Fields}}  {{$key}}: {{$value}}
 {{end}}{{end}}Stack Trace:
 {{.StackTrace}}
-{{if .Caught}}caught:
+{{if .Caught}}Caught:
 {{.Caught}}
 User Message: {{.UserMessage}}
 {{else}}User Message: {{.UserMessage}}{{end}}`
