@@ -72,7 +72,7 @@ func (s *TraceSuite) TestWrapUserMessage(c *C) {
 	c.Assert(line(UserMessage(err)), Equals, "user message")
 
 	err = Wrap(err, "user message 2")
-	c.Assert(line(UserMessage(err)), Equals, "user message, user message 2")
+	c.Assert(line(UserMessage(err)), Equals, "user message 2\tuser message")
 }
 
 func (s *TraceSuite) TestUserMessageWithFields(c *C) {
@@ -433,7 +433,7 @@ func (s *TraceSuite) TestErrorf(c *C) {
 	err := Errorf("error")
 	c.Assert(line(DebugReport(err)), Matches, "*.trace_test.go.*")
 	c.Assert(line(DebugReport(err)), Not(Matches), "*.Fields.*")
-	c.Assert(line(err.(*TraceErr).Message), Equals, "error")
+	c.Assert(err.(*TraceErr).Messages, DeepEquals, []string{"error"})
 }
 
 func (s *TraceSuite) TestWithField(c *C) {

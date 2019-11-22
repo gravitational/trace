@@ -1,5 +1,5 @@
 /*
-Copyright 2015 Gravitational, Inc.
+Copyright 2015-2019 Gravitational, Inc.
 
 Licensed under the Apache License, Version 2.0 (the "License");
 you may not use this file except in compliance with the License.
@@ -288,6 +288,8 @@ type TraceErr struct {
 	Traces `json:"traces"`
 	// Message is an optional message that can be wrapped with the original error
 	Message string `json:"message,omitempty"`
+	// Messages is a list of user messages
+	Messages []string `json:"messages,omitempty"`
 	// Fields is a list of key-value-pairs that can be wrapped with the error to give additional context
 	Fields map[string]interface{} `json:"fields,omitempty`
 }
@@ -296,19 +298,18 @@ type TraceErr struct {
 type Fields map[string]interface{}
 
 type RawTrace struct {
-	Err     json.RawMessage `json:"error"`
-	Traces  `json:"traces"`
-	Message string `json:"message"`
+	Err      json.RawMessage `json:"error"`
+	Traces   `json:"traces"`
+	Message  string   `json:"message"`
+	Messages []string `json:"messages"`
 }
 
 // AddUserMessage adds user-friendly message describing the error nature
-func (e *TraceErr) AddUserMessage(formatArg interface{}, rest ...interface{}) {
+func (e *TraceErr) AddUserMessage(formatArg interface{}, rest ...interface{}) *TraceErr {
 	newMessage := fmt.Sprintf(fmt.Sprintf("%v", formatArg), rest...)
-	if len(e.Message) == 0 {
-		e.Message = newMessage
-	} else {
-		e.Message = strings.Join([]string{e.Message, newMessage}, ", ")
-	}
+	// Prepend so messages higher up the call stack go first.
+	e.Messages = append([]string{newMessage}, e.Messages...)
+	return e
 }
 
 // AddFields adds the given map of fields to the error being reported
@@ -335,7 +336,14 @@ func (e *TraceErr) AddField(k string, v interface{}) *TraceErr {
 
 // UserMessage returns user-friendly error message
 func (e *TraceErr) UserMessage() string {
-	if e.Message != "" {
+	if len(e.Messages) > 0 {
+		result := e.Messages[0]
+		for i, msg := range e.Messages[1:] {
+			result = fmt.Sprintf("%v\n%v%v", result, strings.Repeat("\t", i+1), msg)
+		}
+		return result
+	}
+	if e.Message != "" { // For backwards compatibility.
 		return e.Message
 	}
 	return UserMessage(e.Err)
@@ -367,7 +375,7 @@ var reportTemplate = template.Must(template.New("debugReport").Parse(reportTempl
 var reportTemplateText = `
 ERROR REPORT:
 Original Error: {{.OrigErrType}} {{.OrigErrMessage}}
-{{if .Fields}}Fields: 
+{{if .Fields}}Fields:
 {{range $key, $value := .Fields}}  {{$key}}: {{$value}}
 {{end}}{{end}}Stack Trace:
 {{.StackTrace}}
@@ -422,7 +430,7 @@ type Error interface {
 	// usually works as fmt.Sprintf(formatArg, rest...)
 	// but implementations can choose another way, e.g. treat
 	// arguments as structured args
-	AddUserMessage(formatArg interface{}, rest ...interface{})
+	AddUserMessage(formatArg interface{}, rest ...interface{}) *TraceErr
 
 	// AddField adds additional field information to the error
 	AddField(key string, value interface{}) *TraceErr
