@@ -286,9 +286,11 @@ type TraceErr struct {
 	Err error `json:"error"`
 	// Traces is a slice of stack trace entries for the error
 	Traces `json:"traces"`
-	// Message is an optional message that can be wrapped with the original error
+	// Message is an optional message that can be wrapped with the original error.
+	//
+	// This field is obsolete, replaced by messages list below.
 	Message string `json:"message,omitempty"`
-	// Messages is a list of user messages
+	// Messages is a list of user messages added to this error.
 	Messages []string `json:"messages,omitempty"`
 	// Fields is a list of key-value-pairs that can be wrapped with the error to give additional context
 	Fields map[string]interface{} `json:"fields,omitempty`
@@ -297,18 +299,24 @@ type TraceErr struct {
 // Fields maps arbitrary keys to values inside an error
 type Fields map[string]interface{}
 
+// RawTrace is the trace error that gets passed over the wire.
 type RawTrace struct {
-	Err      json.RawMessage `json:"error"`
-	Traces   `json:"traces"`
-	Message  string   `json:"message"`
+	// Err is the json-encoded error.
+	Err json.RawMessage `json:"error"`
+	// Traces represents the error callstack.
+	Traces `json:"traces"`
+	// Message is the user message.
+	//
+	// This field is obsolete, replaced by messages list below.
+	Message string `json:"message"`
+	// Messages is a list of user messages added to this error.
 	Messages []string `json:"messages"`
 }
 
 // AddUserMessage adds user-friendly message describing the error nature
 func (e *TraceErr) AddUserMessage(formatArg interface{}, rest ...interface{}) *TraceErr {
 	newMessage := fmt.Sprintf(fmt.Sprintf("%v", formatArg), rest...)
-	// Prepend so messages higher up the call stack go first.
-	e.Messages = append([]string{newMessage}, e.Messages...)
+	e.Messages = append(e.Messages, newMessage)
 	return e
 }
 
@@ -328,22 +336,24 @@ func (e *TraceErr) AddField(k string, v interface{}) *TraceErr {
 	if e.Fields == nil {
 		e.Fields = make(map[string]interface{}, 1)
 	}
-
 	e.Fields[k] = v
-
 	return e
 }
 
 // UserMessage returns user-friendly error message
 func (e *TraceErr) UserMessage() string {
 	if len(e.Messages) > 0 {
-		result := e.Messages[0]
-		for i, msg := range e.Messages[1:] {
-			result = fmt.Sprintf("%v\n%v%v", result, strings.Repeat("\t", i+1), msg)
+		// Format all collected messages in the reverse order, with each error
+		// on its own line with appropriate indentation so they form a tree and
+		// it's easy to see the cause and effect.
+		result := e.Messages[len(e.Messages)-1]
+		for index, indent := len(e.Messages)-1, 1; index > 0; index, indent = index-1, indent+1 {
+			result = fmt.Sprintf("%v\n%v%v", result, strings.Repeat("\t", indent), e.Messages[index-1])
 		}
 		return result
 	}
-	if e.Message != "" { // For backwards compatibility.
+	if e.Message != "" {
+		// For backwards compatibility return the old user message if it's present.
 		return e.Message
 	}
 	return UserMessage(e.Err)
