@@ -286,6 +286,17 @@ func (t *Trace) String() string {
 	return fmt.Sprintf("%v:%v", file, t.Line)
 }
 
+// MarshalJSON marshals this error as JSON-encoded payload
+func (r *TraceErr) MarshalJSON() ([]byte, error) {
+	if r == nil {
+		return nil, nil
+	}
+	type marshalableError TraceErr
+	err := marshalableError(*r)
+	err.Err = &externalError{Message: r.Err.Error()}
+	return json.Marshal(err)
+}
+
 // TraceErr contains error message and some additional
 // information about the error origin
 type TraceErr struct {
@@ -316,6 +327,8 @@ type RawTrace struct {
 	Message string `json:"message"`
 	// Messages is a list of user messages added to this error.
 	Messages []string `json:"messages"`
+	// Fields is a list of key-value-pairs that can be wrapped with the error to give additional context
+	Fields map[string]interface{} `json:"fields,omitempty"`
 }
 
 // AddUserMessage adds user-friendly message describing the error nature

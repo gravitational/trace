@@ -402,19 +402,23 @@ func (s *TraceSuite) TestGenericErrors(c *C) {
 
 // Make sure we write some output produced by standard errors
 func (s *TraceSuite) TestWriteExternalErrors(c *C) {
-	err := fmt.Errorf("snap!")
+	err := Wrap(fmt.Errorf("snap!"))
 
 	SetDebug(true)
 	w := newTestWriter()
 	WriteError(w, err)
+	extErr := ReadError(w.StatusCode, w.Body)
 	c.Assert(w.StatusCode, Equals, http.StatusInternalServerError)
 	c.Assert(strings.Replace(string(w.Body), "\n", "", -1), Matches, "*.snap.*")
+	c.Assert(err.Error(), Equals, extErr.Error())
 
 	SetDebug(false)
 	w = newTestWriter()
 	WriteError(w, err)
+	extErr = ReadError(w.StatusCode, w.Body)
 	c.Assert(w.StatusCode, Equals, http.StatusInternalServerError)
 	c.Assert(strings.Replace(string(w.Body), "\n", "", -1), Matches, "*.snap.*")
+	c.Assert(err.Error(), Equals, extErr.Error())
 }
 
 type netError struct {
