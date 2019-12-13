@@ -26,15 +26,13 @@ import (
 	"testing"
 
 	log "github.com/sirupsen/logrus"
-
 	"golang.org/x/net/context"
 	. "gopkg.in/check.v1"
 )
 
 func TestTrace(t *testing.T) { TestingT(t) }
 
-type TraceSuite struct {
-}
+type TraceSuite struct{}
 
 var _ = Suite(&TraceSuite{})
 

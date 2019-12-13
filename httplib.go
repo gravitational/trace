@@ -87,28 +87,16 @@ func ReadError(statusCode int, respBytes []byte) error {
 func replyJSON(w http.ResponseWriter, code int, err error) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
-
 	var out []byte
-	if IsDebug() {
-		// trace error can marshal itself,
-		// otherwise capture error message and marshal it explicitly
-		var obj interface{} = err
-		if _, ok := err.(*TraceErr); !ok {
-			obj = externalError{Message: err.Error()}
-		}
-		out, err = json.MarshalIndent(obj, "", "    ")
-		if err != nil {
-			out = []byte(fmt.Sprintf(`{"message": "internal marshal error: %v"}`, err))
-		}
-	} else {
-		innerError := err
-		if terr, ok := err.(Error); ok {
-			innerError = terr.OrigError()
-		}
-		out, err = json.Marshal(externalError{Message: innerError.Error()})
-		if err != nil {
-			out = []byte(fmt.Sprintf(`{"message": "internal marshal error: %v"}`, err))
-		}
+	// trace error can marshal itself,
+	// otherwise capture error message and marshal it explicitly
+	var obj interface{} = err
+	if _, ok := err.(*TraceErr); !ok {
+		obj = externalError{Message: err.Error()}
+	}
+	out, err = json.MarshalIndent(obj, "", "    ")
+	if err != nil {
+		out = []byte(fmt.Sprintf(`{"message": "internal marshal error: %v"}`, err))
 	}
 	w.Write(out)
 }
