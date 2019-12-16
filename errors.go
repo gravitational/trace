@@ -57,7 +57,8 @@ func (e *NotFoundError) OrigError() error {
 
 // IsNotFound returns whether this error is of NotFoundError type
 func IsNotFound(err error) bool {
-	_, ok := Unwrap(err).(interface {
+	err = Unwrap(err)
+	_, ok := err.(interface {
 		IsNotFoundError() bool
 	})
 	if !ok {
