@@ -41,7 +41,6 @@ package trail
 import (
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 
 	"github.com/gravitational/trace"
 
@@ -122,23 +121,23 @@ func FromGRPC(err error, args ...interface{}) error {
 	case codes.OK:
 		return nil
 	case codes.NotFound:
-		e = &trace.NotFoundError{Message: message}
+		e = trace.InternalWrap(1, &trace.NotFoundError{Message: message})
 	case codes.AlreadyExists:
-		e = &trace.AlreadyExistsError{Message: message}
+		e = trace.InternalWrap(1, &trace.AlreadyExistsError{Message: message})
 	case codes.PermissionDenied:
-		e = &trace.AccessDeniedError{Message: message}
+		e = trace.InternalWrap(1, &trace.AccessDeniedError{Message: message})
 	case codes.FailedPrecondition:
-		e = &trace.CompareFailedError{Message: message}
+		e = trace.InternalWrap(1, &trace.CompareFailedError{Message: message})
 	case codes.InvalidArgument:
-		e = &trace.BadParameterError{Message: message}
+		e = trace.InternalWrap(1, &trace.BadParameterError{Message: message})
 	case codes.ResourceExhausted:
-		e = &trace.LimitExceededError{Message: message}
+		e = trace.InternalWrap(1, &trace.LimitExceededError{Message: message})
 	case codes.Unavailable:
-		e = &trace.ConnectionProblemError{Message: message}
+		e = trace.InternalWrap(1, &trace.ConnectionProblemError{Message: message})
 	case codes.Unimplemented:
-		e = &trace.NotImplementedError{Message: message}
+		e = trace.InternalWrap(1, &trace.NotImplementedError{Message: message})
 	default:
-		e = errors.New(message)
+		e = trace.InternalWrap(1, err)
 	}
 	if len(args) != 0 {
 		if meta, ok := args[0].(metadata.MD); ok {

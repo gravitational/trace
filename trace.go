@@ -50,18 +50,24 @@ func IsDebug() bool {
 // Wrap takes the original error and wraps it into the Trace struct
 // memorizing the context of the error.
 func Wrap(err error, args ...interface{}) Error {
+	return InternalWrap(1, err, args...)
+}
+
+// InternalWrap wraps the original error into the Trace struct with the ability
+// to drop some of the stack frames.
+func InternalWrap(depth int, err error, args ...interface{}) Error {
 	if err == nil {
 		return nil
 	}
 	if len(args) > 0 {
 		format := args[0]
 		args = args[1:]
-		return WrapWithMessage(err, format, args...)
+		return wrapWithMessage(depth+1, err, format, args...)
 	}
 	if traceErr, ok := err.(Error); ok {
 		return traceErr
 	}
-	return newTrace(err, 2)
+	return newTrace(err, depth+2)
 }
 
 // Unwrap returns the original error the given error wraps
@@ -139,11 +145,18 @@ func GetFields(err error) map[string]interface{} {
 
 // WrapWithMessage wraps the original error into Error and adds user message if any
 func WrapWithMessage(err error, message interface{}, args ...interface{}) Error {
+	return wrapWithMessage(1, err, message, args...)
+}
+
+// wrapWithMessage is always being called from the trace library itself and it
+// should be called only by some top-level routine to keep the call stack off
+// the library frames: first stack frame should always be the library user.
+func wrapWithMessage(depth int, err error, message interface{}, args ...interface{}) Error {
 	var trace Error
 	if traceErr, ok := err.(Error); ok {
 		trace = traceErr
 	} else {
-		trace = newTrace(err, 3)
+		trace = newTrace(err, depth+2)
 	}
 	trace.AddUserMessage(message, args...)
 	return trace

@@ -82,6 +82,8 @@ func (s *TrailSuite) TestConversion(c *C) {
 		c.Assert(grpc.ErrorDesc(grpcError), Equals, tc.Error.Error(), comment)
 		out := FromGRPC(grpcError)
 		c.Assert(tc.Predicate(out), Equals, true, comment)
+		c.Assert(line(trace.DebugReport(out)), Matches, ".*trail_test.go.*")
+		c.Assert(line(trace.DebugReport(out)), Not(Matches), ".*trail.go.*")
 	}
 }
 

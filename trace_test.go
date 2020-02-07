@@ -48,6 +48,7 @@ func (s *TraceSuite) TestWrap(c *C) {
 	err := Wrap(Wrap(testErr))
 
 	c.Assert(line(DebugReport(err)), Matches, ".*trace_test.go.*")
+	c.Assert(line(DebugReport(err)), Not(Matches), ".*trace.go.*")
 	c.Assert(line(UserMessage(err)), Not(Matches), ".*trace_test.go.*")
 	c.Assert(line(UserMessage(err)), Matches, ".*param.*")
 }
@@ -68,9 +69,19 @@ func (s *TraceSuite) TestWrapUserMessage(c *C) {
 
 	err := Wrap(testErr, "user message")
 	c.Assert(line(UserMessage(err)), Equals, "user message")
+	c.Assert(line(DebugReport(err)), Matches, "*.trace_test.go.*")
+	c.Assert(line(DebugReport(err)), Not(Matches), "*.trace.go.*")
 
 	err = Wrap(err, "user message 2")
 	c.Assert(line(UserMessage(err)), Equals, "user message 2\tuser message")
+}
+
+func (s *TraceSuite) TestWrapWithMessage(c *C) {
+	testErr := fmt.Errorf("description")
+	err := WrapWithMessage(testErr, "user message")
+	c.Assert(line(UserMessage(err)), Equals, "user message")
+	c.Assert(line(DebugReport(err)), Matches, "*.trace_test.go.*")
+	c.Assert(line(DebugReport(err)), Not(Matches), "*.trace.go.*")
 }
 
 func (s *TraceSuite) TestUserMessageWithFields(c *C) {
@@ -379,6 +390,8 @@ func (s *TraceSuite) TestGenericErrors(c *C) {
 		}
 		c.Assert(len(traceErr.Traces), Not(Equals), 0, comment)
 		c.Assert(line(DebugReport(err)), Matches, "*.trace_test.go.*", comment)
+		c.Assert(line(DebugReport(err)), Not(Matches), "*.errors.go.*", comment)
+		c.Assert(line(DebugReport(err)), Not(Matches), "*.trace.go.*", comment)
 		c.Assert(testCase.Predicate(err), Equals, true, comment)
 
 		w := newTestWriter()
