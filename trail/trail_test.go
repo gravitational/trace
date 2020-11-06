@@ -22,27 +22,27 @@ import (
 
 	"github.com/gravitational/trace"
 
+	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/metadata"
-	. "gopkg.in/check.v1"
 )
 
-func TestTrail(t *testing.T) { TestingT(t) }
-
-type TrailSuite struct {
+func TestTrail(t *testing.T) {
+	suite.Run(t, new(TrailSuite))
 }
 
-var _ = Suite(&TrailSuite{})
+type TrailSuite struct {
+	suite.Suite
+}
 
 // TestConversion makes sure we convert all trace supported errors
 // to and back from GRPC codes
-func (s *TrailSuite) TestConversion(c *C) {
-	type TestCase struct {
+func (s *TrailSuite) TestConversion() {
+	testCases := []struct {
 		Error     error
 		Message   string
 		Predicate func(error) bool
-	}
-	testCases := []TestCase{
+	}{
 		{
 			Error:     trace.AccessDenied("access denied"),
 			Predicate: trace.IsAccessDenied,
@@ -76,29 +76,29 @@ func (s *TrailSuite) TestConversion(c *C) {
 			Predicate: trace.IsNotImplemented,
 		},
 	}
+
 	for i, tc := range testCases {
-		comment := Commentf("test case #v", i+1)
 		grpcError := ToGRPC(tc.Error)
-		c.Assert(grpc.ErrorDesc(grpcError), Equals, tc.Error.Error(), comment)
+		s.Equal(tc.Error.Error(), grpc.ErrorDesc(grpcError), "test case #v", i+1)
 		out := FromGRPC(grpcError)
-		c.Assert(tc.Predicate(out), Equals, true, comment)
+		s.True(tc.Predicate(out), "test case #v", i+1)
 	}
 }
 
 // TestNil makes sure conversions of nil to and from GRPC are no-op
-func (s *TrailSuite) TestNil(c *C) {
+func (s *TrailSuite) TestNil() {
 	out := FromGRPC(ToGRPC(nil))
-	c.Assert(out, IsNil)
+	s.Nil(out)
 }
 
 // TestTraces makes sure we pass traces via metadata and can decode it back
-func (s *TrailSuite) TestTraces(c *C) {
+func (s *TrailSuite) TestTraces() {
 	err := trace.BadParameter("param")
 	meta := metadata.New(nil)
 	SetDebugInfo(err, meta)
 	err2 := FromGRPC(ToGRPC(err), meta)
-	c.Assert(line(trace.DebugReport(err)), Matches, ".*trail_test.go.*")
-	c.Assert(line(trace.DebugReport(err2)), Matches, ".*trail_test.go.*")
+	s.Regexp(".*trail_test.go.*", line(trace.DebugReport(err)))
+	s.Regexp(".*trail_test.go.*", line(trace.DebugReport(err2)))
 }
 
 func line(s string) string {
