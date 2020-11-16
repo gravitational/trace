@@ -333,6 +333,14 @@ func (c *ConnectionProblemError) OrigError() error {
 	return c
 }
 
+// UserMessage returns the associated user message
+func (c *ConnectionProblemError) UserMessage() string {
+	if c.Message != "" {
+		return c.Message
+	}
+	return UserMessage(c.Err)
+}
+
 // IsConnectionProblem returns whether this error is of ConnectionProblemError
 func IsConnectionProblem(e error) bool {
 	type ad interface {
@@ -398,6 +406,14 @@ func (*TrustError) IsTrustError() bool {
 // OrigError returns original error (in this case this is the error itself)
 func (t *TrustError) OrigError() error {
 	return t
+}
+
+// UserMessage returns the associated user message
+func (t *TrustError) UserMessage() string {
+	if t.Message != "" {
+		return t.Message
+	}
+	return UserMessage(t.Err)
 }
 
 // IsTrustError returns if this is a trust error
@@ -479,6 +495,14 @@ func (c *RetryError) IsRetryError() bool {
 // OrigError returns original error (in this case this is the error itself)
 func (c *RetryError) OrigError() error {
 	return c
+}
+
+// UserMessage returns the associated user message
+func (c *RetryError) UserMessage() string {
+	if c.Message != "" {
+		return c.Message
+	}
+	return UserMessage(c.Err)
 }
 
 // IsRetryError returns whether this error is of ConnectionProblemError
