@@ -317,10 +317,10 @@ type ConnectionProblemError struct {
 
 // Error is debug - friendly error message
 func (c *ConnectionProblemError) Error() string {
-	if c.Err == nil {
+	if c.Message != "" {
 		return c.Message
 	}
-	return c.Err.Error()
+	return UserMessage(c.Err)
 }
 
 // IsConnectionProblemError indicates that this error is of ConnectionProblemError type
@@ -328,17 +328,12 @@ func (c *ConnectionProblemError) IsConnectionProblemError() bool {
 	return true
 }
 
-// OrigError returns original error (in this case this is the error itself)
+// OrigError returns original error
 func (c *ConnectionProblemError) OrigError() error {
-	return c
-}
-
-// UserMessage returns the associated user message
-func (c *ConnectionProblemError) UserMessage() string {
-	if c.Message != "" {
-		return c.Message
+	if c.Err != nil {
+		return c.Err
 	}
-	return UserMessage(c.Err)
+	return c
 }
 
 // IsConnectionProblem returns whether this error is of ConnectionProblemError
@@ -386,6 +381,14 @@ func IsLimitExceeded(e error) bool {
 	return ok
 }
 
+// Trust returns new instance of TrustError
+func Trust(err error, message string, args ...interface{}) Error {
+	return newTrace(&TrustError{
+		Message: fmt.Sprintf(message, args...),
+		Err:     err,
+	}, 2)
+}
+
 // TrustError indicates trust-related validation error (e.g. untrusted cert)
 type TrustError struct {
 	// Err is original error
@@ -395,7 +398,10 @@ type TrustError struct {
 
 // Error returns log-friendly error description
 func (t *TrustError) Error() string {
-	return t.Err.Error()
+	if t.Message != "" {
+		return t.Message
+	}
+	return UserMessage(t.Err)
 }
 
 // IsTrustError indicates that this error is of TrustError type
@@ -405,15 +411,10 @@ func (*TrustError) IsTrustError() bool {
 
 // OrigError returns original error (in this case this is the error itself)
 func (t *TrustError) OrigError() error {
-	return t
-}
-
-// UserMessage returns the associated user message
-func (t *TrustError) UserMessage() string {
-	if t.Message != "" {
-		return t.Message
+	if t.Err != nil {
+		return t.Err
 	}
-	return UserMessage(t.Err)
+	return t
 }
 
 // IsTrustError returns if this is a trust error
@@ -465,7 +466,7 @@ func IsEOF(e error) bool {
 	return Unwrap(e) == io.EOF
 }
 
-// Retry return new instance of RetryError which indicates a transient error type
+// Retry returns new instance of RetryError which indicates a transient error type
 func Retry(err error, message string, args ...interface{}) Error {
 	return newTrace(&RetryError{
 		Message: fmt.Sprintf(message, args...),
@@ -481,10 +482,10 @@ type RetryError struct {
 
 // Error is debug-friendly error message
 func (c *RetryError) Error() string {
-	if c.Err == nil {
+	if c.Message != "" {
 		return c.Message
 	}
-	return c.Err.Error()
+	return UserMessage(c.Err)
 }
 
 // IsRetryError indicates that this error is of RetryError type
@@ -494,15 +495,10 @@ func (c *RetryError) IsRetryError() bool {
 
 // OrigError returns original error (in this case this is the error itself)
 func (c *RetryError) OrigError() error {
-	return c
-}
-
-// UserMessage returns the associated user message
-func (c *RetryError) UserMessage() string {
-	if c.Message != "" {
-		return c.Message
+	if c.Err != nil {
+		return c.Err
 	}
-	return UserMessage(c.Err)
+	return c
 }
 
 // IsRetryError returns whether this error is of ConnectionProblemError

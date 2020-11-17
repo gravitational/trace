@@ -554,6 +554,40 @@ func (s *TraceSuite) TestAggregateFromChannelCancel(c *C) {
 	NewAggregateFromChannel(errCh, ctx)
 }
 
+func (s *TraceSuite) TestCompositeErrorsCanProperlyUnwrap(c *C) {
+	var testCases = []struct {
+		err            error
+		message        string
+		wrappedMessage string
+	}{
+		{
+			err:            ConnectionProblem(fmt.Errorf("internal error"), "failed to connect"),
+			message:        "failed to connect",
+			wrappedMessage: "internal error",
+		},
+		{
+			err:            Retry(fmt.Errorf("transient error"), "connection refused"),
+			message:        "connection refused",
+			wrappedMessage: "transient error",
+		},
+		{
+			err:            Trust(fmt.Errorf("access denied"), "failed to validate"),
+			message:        "failed to validate",
+			wrappedMessage: "access denied",
+		},
+	}
+	for _, tt := range testCases {
+		s.validateCompositeError(c, tt.err, tt.message, tt.wrappedMessage)
+	}
+}
+
+func (s *TraceSuite) validateCompositeError(c *C, err error, message, wrappedMessage string) {
+	c.Assert(err.Error(), Equals, message)
+	var wrapper ErrorWrapper
+	c.Assert(Unwrap(err), Implements, &wrapper)
+	c.Assert(Unwrap(err).(ErrorWrapper).OrigError().Error(), Equals, wrappedMessage)
+}
+
 type testError struct {
 	Param string
 }
