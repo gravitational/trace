@@ -55,9 +55,9 @@ func NotFound(message string, args ...interface{}) trace.Error {
 	}
 }
 
-// Wrap takes the original error and wraps it into the Trace struct.
+// Wrap takes the original error and wraps it into the Trace struct
 // memorizing the context of the error.
-// Does not return the stack traces.
+// Does not return the stack trace.
 func Wrap(err error, args ...interface{}) trace.Error {
 	if err == nil {
 		return nil
@@ -82,9 +82,9 @@ func Wrap(err error, args ...interface{}) trace.Error {
 	return t
 }
 
-// ConvertSystemError converts system error to appropriate trace error.
+// ConvertSystemError converts system error to appropriate trace error
 // if it is possible, otherwise, returns original error.
-// Does not return the stack traces.
+// Does not return the stack trace.
 func ConvertSystemError(err error) error {
 	innerError := trace.Unwrap(err)
 
@@ -127,7 +127,7 @@ func ConvertSystemError(err error) error {
 	return err
 }
 
-// Errorf is similar to trace.Errorf but without the stack trace.
+// Errorf is the no stack trace version of trace.Errorf.
 func Errorf(format string, args ...interface{}) (err error) {
 	return fmt.Errorf(format, args...)
 }
