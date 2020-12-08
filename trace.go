@@ -74,9 +74,11 @@ func Unwrap(err error) error {
 
 // ClearTraces empties the list of traces
 func ClearTraces(err error) error {
-	if err, ok := err.(*TraceErr); ok {
-		err.Traces = err.Traces[:0]
+	if terr, ok := err.(*TraceErr); ok {
+		terr.Traces = terr.Traces[:0]
+		return terr
 	}
+
 	return err
 }
 
