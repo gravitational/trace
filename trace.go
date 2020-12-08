@@ -72,6 +72,14 @@ func Unwrap(err error) error {
 	return err
 }
 
+// ClearTraces empties the list of traces
+func ClearTraces(err error) error {
+	if err, ok := err.(*TraceErr); ok {
+		err.Traces = err.Traces[:0]
+	}
+	return err
+}
+
 // ErrorWrapper wraps another error
 type ErrorWrapper interface {
 	// OrigError returns the wrapped error
