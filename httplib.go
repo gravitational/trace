@@ -92,7 +92,7 @@ func replyJSON(w http.ResponseWriter, code int, err error) {
 	// otherwise capture error message and marshal it explicitly
 	var obj interface{} = err
 	if _, ok := err.(*TraceErr); !ok {
-		obj = RawTrace{Message: err.Error()}
+		obj = &TraceErr{Err: err}
 	}
 	out, err = json.MarshalIndent(obj, "", "    ")
 	if err != nil {
