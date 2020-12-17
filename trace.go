@@ -409,6 +409,13 @@ func (e *TraceErr) GetFields() map[string]interface{} {
 	return e.Fields
 }
 
+// Unwrap returns the error this TraceErr wraps. The returned error may also
+// wrap another one, Unwrap doesn't recursively get the inner-most error like
+// OrigError does.
+func (e *TraceErr) Unwrap() error {
+	return e.Err
+}
+
 // OrigError returns original wrapped error
 func (e *TraceErr) OrigError() error {
 	err := e.Err
@@ -420,9 +427,11 @@ func (e *TraceErr) OrigError() error {
 		if !ok {
 			break
 		}
-		if newerr.OrigError() != err {
-			err = newerr.OrigError()
+		next := newerr.OrigError()
+		if next == nil || next == err {
+			break
 		}
+		err = next
 	}
 	return err
 }
@@ -438,7 +447,9 @@ const maxHops = 50
 
 // Error is an interface that helps to adapt usage of trace in the code
 // When applications define new error types, they can implement the interface
-// So error handlers can use OrigError() to retrieve error from the wrapper
+//
+// Error handlers can use Unwrap() to retrieve error from the wrapper, or
+// errors.Is()/As() to compare it to another value.
 type Error interface {
 	error
 	ErrorWrapper
@@ -567,17 +578,6 @@ func (r proxyError) DebugReport() string {
 		Caught:         r.TraceErr.Traces.String(),
 	})
 	return buf.String()
-}
-
-// OrigError returns the original error.
-// Implements WrappingError
-func (r proxyError) OrigError() error {
-	return r.TraceErr.OrigError()
-}
-
-// Error returns the error message of the underlying error
-func (r proxyError) Error() string {
-	return r.TraceErr.Error()
 }
 
 // GoString formats this trace object for use with

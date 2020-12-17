@@ -18,6 +18,7 @@ package trace
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -592,4 +593,33 @@ func (tw *testWriter) WriteHeader(code int) {
 
 func line(s string) string {
 	return strings.Replace(s, "\n", "", -1)
+}
+
+func TestStdlibCompat(t *testing.T) {
+	rootErr := BadParameter("root error")
+
+	err := rootErr
+	for i := 0; i < 10; i++ {
+		err = Wrap(err)
+	}
+	for i := 0; i < 10; i++ {
+		err = WrapWithMessage(err, "wrap message %d", i)
+	}
+
+	if !errors.Is(err, rootErr) {
+		t.Error("trace.Is(err, rootErr): got false, want true")
+	}
+	otherErr := CompareFailed("other error")
+	if errors.Is(err, otherErr) {
+		t.Error("trace.Is(err, otherErr): got true, want false")
+	}
+
+	var bpErr *BadParameterError
+	if !errors.As(err, &bpErr) {
+		t.Error("trace.As(err, BadParameterEror): got false, want true")
+	}
+	var cpErr *ConnectionProblemError
+	if errors.As(err, &cpErr) {
+		t.Error("trace.As(err, ConnectivityProblemError): got true, want false")
+	}
 }
