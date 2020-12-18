@@ -576,16 +576,12 @@ func (s *TraceSuite) TestCompositeErrorsCanProperlyUnwrap(c *C) {
 			wrappedMessage: "access denied",
 		},
 	}
-	for _, tt := range testCases {
-		s.validateCompositeError(c, tt.err, tt.message, tt.wrappedMessage)
-	}
-}
-
-func (s *TraceSuite) validateCompositeError(c *C, err error, message, wrappedMessage string) {
-	c.Assert(err.Error(), Equals, message)
 	var wrapper ErrorWrapper
-	c.Assert(Unwrap(err), Implements, &wrapper)
-	c.Assert(Unwrap(err).(ErrorWrapper).OrigError().Error(), Equals, wrappedMessage)
+	for _, tt := range testCases {
+		c.Assert(tt.err.Error(), Equals, tt.message)
+		c.Assert(Unwrap(tt.err), Implements, &wrapper)
+		c.Assert(Unwrap(tt.err).(ErrorWrapper).OrigError().Error(), Equals, tt.wrappedMessage)
+	}
 }
 
 type testError struct {
@@ -632,7 +628,7 @@ func line(s string) string {
 func TestStdlibCompat(t *testing.T) {
 	rootErr := BadParameter("root error")
 
-	err := rootErr
+	var err error = rootErr
 	for i := 0; i < 10; i++ {
 		err = Wrap(err)
 	}
@@ -655,5 +651,16 @@ func TestStdlibCompat(t *testing.T) {
 	var cpErr *ConnectionProblemError
 	if errors.As(err, &cpErr) {
 		t.Error("trace.As(err, ConnectivityProblemError): got true, want false")
+	}
+
+	expectedErr := errors.New("wrapped error message")
+	err = &ConnectionProblemError{Err: expectedErr, Message: "error message"}
+	wrappedErr := errors.Unwrap(err)
+	if wrappedErr == nil {
+		t.Errorf("trace.Unwrap(err): got nil, want %v", expectedErr)
+	}
+	wrappedErrorMessage := wrappedErr.Error()
+	if wrappedErrorMessage != expectedErr.Error() {
+		t.Errorf("got %q, want %q", wrappedErrorMessage, expectedErr.Error())
 	}
 }

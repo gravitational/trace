@@ -328,6 +328,11 @@ func (c *ConnectionProblemError) IsConnectionProblemError() bool {
 	return true
 }
 
+// Unwrap returns the wrapped error if any
+func (c *ConnectionProblemError) Unwrap() error {
+	return c.Err
+}
+
 // OrigError returns original error
 func (c *ConnectionProblemError) OrigError() error {
 	if c.Err != nil {
@@ -407,6 +412,11 @@ func (t *TrustError) Error() string {
 // IsTrustError indicates that this error is of TrustError type
 func (*TrustError) IsTrustError() bool {
 	return true
+}
+
+// Unwrap returns the wrapped error if any
+func (t *TrustError) Unwrap() error {
+	return t.Err
 }
 
 // OrigError returns original error (in this case this is the error itself)
@@ -491,6 +501,11 @@ func (c *RetryError) Error() string {
 // IsRetryError indicates that this error is of RetryError type
 func (c *RetryError) IsRetryError() bool {
 	return true
+}
+
+// Unwrap returns the wrapped error if any
+func (c *RetryError) Unwrap() error {
+	return c.Err
 }
 
 // OrigError returns original error (in this case this is the error itself)
