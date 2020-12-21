@@ -554,6 +554,36 @@ func (s *TraceSuite) TestAggregateFromChannelCancel(c *C) {
 	NewAggregateFromChannel(errCh, ctx)
 }
 
+func (s *TraceSuite) TestCompositeErrorsCanProperlyUnwrap(c *C) {
+	var testCases = []struct {
+		err            error
+		message        string
+		wrappedMessage string
+	}{
+		{
+			err:            ConnectionProblem(fmt.Errorf("internal error"), "failed to connect"),
+			message:        "failed to connect",
+			wrappedMessage: "internal error",
+		},
+		{
+			err:            Retry(fmt.Errorf("transient error"), "connection refused"),
+			message:        "connection refused",
+			wrappedMessage: "transient error",
+		},
+		{
+			err:            Trust(fmt.Errorf("access denied"), "failed to validate"),
+			message:        "failed to validate",
+			wrappedMessage: "access denied",
+		},
+	}
+	var wrapper ErrorWrapper
+	for _, tt := range testCases {
+		c.Assert(tt.err.Error(), Equals, tt.message)
+		c.Assert(Unwrap(tt.err), Implements, &wrapper)
+		c.Assert(Unwrap(tt.err).(ErrorWrapper).OrigError().Error(), Equals, tt.wrappedMessage)
+	}
+}
+
 type testError struct {
 	Param string
 }
@@ -598,7 +628,7 @@ func line(s string) string {
 func TestStdlibCompat(t *testing.T) {
 	rootErr := BadParameter("root error")
 
-	err := rootErr
+	var err error = rootErr
 	for i := 0; i < 10; i++ {
 		err = Wrap(err)
 	}
@@ -621,5 +651,16 @@ func TestStdlibCompat(t *testing.T) {
 	var cpErr *ConnectionProblemError
 	if errors.As(err, &cpErr) {
 		t.Error("trace.As(err, ConnectivityProblemError): got true, want false")
+	}
+
+	expectedErr := errors.New("wrapped error message")
+	err = &ConnectionProblemError{Err: expectedErr, Message: "error message"}
+	wrappedErr := errors.Unwrap(err)
+	if wrappedErr == nil {
+		t.Errorf("trace.Unwrap(err): got nil, want %v", expectedErr)
+	}
+	wrappedErrorMessage := wrappedErr.Error()
+	if wrappedErrorMessage != expectedErr.Error() {
+		t.Errorf("got %q, want %q", wrappedErrorMessage, expectedErr.Error())
 	}
 }
