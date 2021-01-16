@@ -88,7 +88,7 @@ func replyJSON(w http.ResponseWriter, code int, err error) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	var out []byte
-	// wrap regular errors inorder to achieve unification
+	// wrap regular errors in order to achieve unification
 	// and provide structurally consistent responses
 	var obj interface{} = err
 	if _, ok := err.(*TraceErr); !ok {
