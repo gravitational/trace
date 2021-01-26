@@ -96,7 +96,7 @@ func replyJSON(w http.ResponseWriter, code int, err error) {
 	}
 	out, err = json.MarshalIndent(obj, "", "    ")
 	if err != nil {
-		out = []byte(fmt.Sprintf(`{"message": "internal marshal error: %v"}`, err))
+		out = []byte(fmt.Sprintf(`{"error": {"message": "internal marshal error: %v"}}`, err))
 	}
 	w.Write(out)
 }
