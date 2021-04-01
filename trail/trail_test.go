@@ -17,6 +17,7 @@ limitations under the License.
 package trail
 
 import (
+	"io"
 	"strings"
 	"testing"
 
@@ -82,6 +83,8 @@ func (s *TrailSuite) TestConversion(c *C) {
 		c.Assert(grpc.ErrorDesc(grpcError), Equals, tc.Error.Error(), comment)
 		out := FromGRPC(grpcError)
 		c.Assert(tc.Predicate(out), Equals, true, comment)
+		c.Assert(line(trace.DebugReport(out)), Matches, ".*trail_test.go.*")
+		c.Assert(line(trace.DebugReport(out)), Not(Matches), ".*trail.go.*")
 	}
 }
 
@@ -89,6 +92,12 @@ func (s *TrailSuite) TestConversion(c *C) {
 func (s *TrailSuite) TestNil(c *C) {
 	out := FromGRPC(ToGRPC(nil))
 	c.Assert(out, IsNil)
+}
+
+// TestFromEOF makes sure that non-grpc error such as io.EOF is preserved well.
+func (s *TrailSuite) TestFromEOF(c *C) {
+	out := FromGRPC(trace.Wrap(io.EOF))
+	c.Assert(trace.IsEOF(out), Equals, true)
 }
 
 // TestTraces makes sure we pass traces via metadata and can decode it back
