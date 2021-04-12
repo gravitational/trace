@@ -69,7 +69,7 @@ func (elk *UDPHook) Fire(e *log.Entry) error {
 	// Make a copy to safely modify
 	entry := e.WithFields(nil)
 	if cursor := findFrame(); cursor != nil {
-		t := internal.GetTracesFromCursor(*cursor)
+		t := internal.DecodeTracesFromCursor(*cursor)
 		entry.Data[FileField] = t.String()
 		entry.Data[FunctionField] = t.Func()
 	}

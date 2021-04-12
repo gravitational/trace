@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"github.com/gravitational/trace/internal"
 )
 
 // WriteError sets up HTTP error response and writes it to writer w
@@ -79,9 +81,9 @@ func ReadError(statusCode int, respBytes []byte) error {
 	case http.StatusGatewayTimeout:
 		err = &ConnectionProblemError{}
 	default:
-		err = &RawTrace{}
+		err = &internal.RawTrace{}
 	}
-	return wrapProxy(unmarshalError(err, respBytes))
+	return internal.WrapProxy(unmarshalError(err, respBytes))
 }
 
 func replyJSON(w http.ResponseWriter, code int, err error) {
@@ -105,7 +107,7 @@ func unmarshalError(err error, responseBody []byte) error {
 	if len(responseBody) == 0 {
 		return err
 	}
-	var raw RawTrace
+	var raw internal.RawTrace
 	if err2 := json.Unmarshal(responseBody, &raw); err2 != nil {
 		return err
 	}
@@ -115,13 +117,16 @@ func unmarshalError(err error, responseBody []byte) error {
 			return err
 		}
 		return &TraceErr{
-			Traces:   raw.Traces,
 			Err:      err,
 			Message:  raw.Message,
 			Messages: raw.Messages,
 			Fields:   raw.Fields,
+			Traces:   raw.Traces,
 		}
 	}
 	json.Unmarshal(responseBody, err)
 	return err
 }
+
+// maxHops is a max supported nested depth for errors
+const maxHops = 50

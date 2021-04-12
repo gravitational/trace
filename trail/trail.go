@@ -111,54 +111,54 @@ func ToGRPC(err error) error {
 
 // FromGRPC converts error from GRPC error back to trace.Error
 // Debug information will be retrieved from the metadata if specified in args
-func FromGRPC(err error, args ...interface{}) error {
-	if err == nil {
+func FromGRPC(grpcErr error, args ...interface{}) error {
+	if grpcErr == nil {
 		return nil
 	}
-	code := grpc.Code(err)
-	message := grpc.ErrorDesc(err)
-	var e error
+	code := grpc.Code(grpcErr)
+	message := grpc.ErrorDesc(grpcErr)
+	var err error
 	switch code {
 	case codes.OK:
 		return nil
 	case codes.NotFound:
-		e = &trace.NotFoundError{Message: message}
+		err = &trace.NotFoundError{Message: message}
 	case codes.AlreadyExists:
-		e = &trace.AlreadyExistsError{Message: message}
+		err = &trace.AlreadyExistsError{Message: message}
 	case codes.PermissionDenied:
-		e = &trace.AccessDeniedError{Message: message}
+		err = &trace.AccessDeniedError{Message: message}
 	case codes.FailedPrecondition:
-		e = &trace.CompareFailedError{Message: message}
+		err = &trace.CompareFailedError{Message: message}
 	case codes.InvalidArgument:
-		e = &trace.BadParameterError{Message: message}
+		err = &trace.BadParameterError{Message: message}
 	case codes.ResourceExhausted:
-		e = &trace.LimitExceededError{Message: message}
+		err = &trace.LimitExceededError{Message: message}
 	case codes.Unavailable:
-		e = &trace.ConnectionProblemError{Message: message}
+		err = &trace.ConnectionProblemError{Message: message}
 	case codes.Unimplemented:
-		e = &trace.NotImplementedError{Message: message}
+		err = &trace.NotImplementedError{Message: message}
 	default:
-		e = err
+		err = grpcErr
 	}
 	if len(args) != 0 {
 		if meta, ok := args[0].(metadata.MD); ok {
-			e = DecodeDebugInfo(e, meta)
+			err = DecodeDebugInfo(err, meta)
 			// We return here because if it's a trace.Error then
-			// frames was already extracted from metadata so
-			// there's no need to capture frames once again.
-			if _, ok := e.(trace.Error); ok {
-				return e
+			// frames were already extracted from metadata so
+			// there's no need to capture frames again.
+			if _, ok := err.(trace.Error); ok {
+				return err
 			}
 		}
 	}
-	traces := internal.CaptureTraces(1)
-	return &trace.TraceErr{Err: e, Traces: traces}
+	// 2 to remove the call to internal.Wrap
+	return internal.Wrap(err, 2)
 }
 
 // SetDebugInfo adds debug metadata about error (traces, original error)
 // to request metadata as encoded property
 func SetDebugInfo(err error, meta metadata.MD) {
-	if _, ok := err.(*trace.TraceErr); !ok {
+	if _, ok := err.(trace.Error); !ok {
 		return
 	}
 	out, err := json.Marshal(err)
@@ -184,12 +184,12 @@ func DecodeDebugInfo(err error, meta metadata.MD) error {
 	if decodeErr != nil {
 		return err
 	}
-	var raw trace.RawTrace
+	var raw internal.RawTrace
 	if unmarshalErr := json.Unmarshal(data, &raw); unmarshalErr != nil {
 		return err
 	}
 	if len(raw.Traces) != 0 && len(raw.Err) != 0 {
-		return &trace.TraceErr{Traces: raw.Traces, Err: err, Message: raw.Message}
+		return raw.Wrap(err)
 	}
 	return err
 }

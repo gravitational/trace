@@ -26,6 +26,8 @@ import (
 	"strings"
 	"testing"
 
+	"github.com/gravitational/trace/internal"
+
 	log "github.com/sirupsen/logrus"
 	"golang.org/x/net/context"
 	. "gopkg.in/check.v1"
@@ -384,12 +386,9 @@ func (s *TraceSuite) TestGenericErrors(c *C) {
 		SetDebug(true)
 		err := testCase.Err
 
-		var traceErr *TraceErr
-		var ok bool
-		if traceErr, ok = err.(*TraceErr); !ok {
+		if _, ok := err.(*TraceErr); !ok {
 			c.Fatal("Expected error to be of type *TraceErr")
 		}
-		c.Assert(len(traceErr.Traces), Not(Equals), 0, comment)
 		c.Assert(line(DebugReport(err)), Matches, "*.trace_test.go.*", comment)
 		c.Assert(line(DebugReport(err)), Not(Matches), "*.errors.go.*", comment)
 		c.Assert(line(DebugReport(err)), Not(Matches), "*.trace.go.*", comment)
@@ -399,8 +398,8 @@ func (s *TraceSuite) TestGenericErrors(c *C) {
 		WriteError(w, err)
 
 		outErr := ReadError(w.StatusCode, w.Body)
-		if _, ok := outErr.(proxyError); !ok {
-			c.Fatal("Expected error to be of type proxyError")
+		if _, ok := outErr.(*internal.ProxyError); !ok {
+			c.Fatal("Expected error to be of type internal.ProxyError")
 		}
 		c.Assert(testCase.Predicate(outErr), Equals, true, comment)
 
@@ -433,10 +432,9 @@ func (s *TraceSuite) TestWriteExternalErrors(c *C) {
 	c.Assert(err.Error(), Equals, extErr.Error())
 }
 
-type netError struct {
-}
+type netError struct{}
 
-func (e *netError) Error() string   { return "net" }
+func (e *netError) Error() string   { return "net error" }
 func (e *netError) Timeout() bool   { return true }
 func (e *netError) Temporary() bool { return true }
 
@@ -675,5 +673,11 @@ func TestStdlibCompat(t *testing.T) {
 	wrappedErrorMessage := wrappedErr.Error()
 	if wrappedErrorMessage != expectedErr.Error() {
 		t.Errorf("got %q, want %q", wrappedErrorMessage, expectedErr.Error())
+	}
+}
+
+func BenchmarkStacktraceAllocs(b *testing.B) {
+	for n := 0; n < b.N; n++ {
+		Wrap(Errorf("example error"))
 	}
 }
