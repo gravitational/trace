@@ -14,7 +14,7 @@ func WriteError(w http.ResponseWriter, err error) {
 		replyJSON(w, ErrorToCode(err), err)
 		return
 	}
-	for i := 0; i < maxHops; i++ {
+	for i := 0; i < internal.MaxHops; i++ {
 		var aggErr Aggregate
 		var ok bool
 		if aggErr, ok = Unwrap(err).(Aggregate); !ok {
@@ -127,6 +127,3 @@ func unmarshalError(err error, responseBody []byte) error {
 	json.Unmarshal(responseBody, err)
 	return err
 }
-
-// maxHops is a max supported nested depth for errors
-const maxHops = 50

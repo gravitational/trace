@@ -144,36 +144,10 @@ type Traces = internal.Traces
 
 type TraceErr = internal.TraceErr
 
+type Error = internal.Error
+
 // Fields maps arbitrary keys to values inside an error
 type Fields map[string]interface{}
-
-// Error is an interface that helps to adapt usage of trace in the code
-// When applications define new error types, they can implement the interface
-//
-// Error handlers can use Unwrap() to retrieve error from the wrapper, or
-// errors.Is()/As() to compare it to another value.
-type Error interface {
-	error
-	ErrorWrapper
-	DebugReporter
-	UserMessager
-
-	// AddMessage adds formatted user-facing message
-	// to the error, depends on the implementation,
-	// usually works as fmt.Sprintf(formatArg, rest...)
-	// but implementations can choose another way, e.g. treat
-	// arguments as structured args
-	AddUserMessage(formatArg interface{}, rest ...interface{}) *TraceErr
-
-	// AddField adds additional field information to the error
-	AddField(key string, value interface{}) *TraceErr
-
-	// AddFields adds a map of additional fields to the error
-	AddFields(fields map[string]interface{}) *TraceErr
-
-	// GetFields returns any fields that have been added to the error
-	GetFields() map[string]interface{}
-}
 
 // NewAggregate creates a new aggregate instance from the specified
 // list of errors
