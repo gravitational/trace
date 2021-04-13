@@ -677,6 +677,7 @@ func TestStdlibCompat(t *testing.T) {
 }
 
 func BenchmarkStacktraceAllocs(b *testing.B) {
+	b.ReportAllocs()
 	for n := 0; n < b.N; n++ {
 		Wrap(Errorf("example error"))
 	}
