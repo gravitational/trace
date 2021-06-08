@@ -24,7 +24,9 @@ import (
 	"github.com/gravitational/trace"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 	. "gopkg.in/check.v1"
 )
 
@@ -112,4 +114,16 @@ func (s *TrailSuite) TestTraces(c *C) {
 
 func line(s string) string {
 	return strings.Replace(s, "\n", "", -1)
+}
+
+func TestToGRPCKeepCode(t *testing.T) {
+	err := status.Errorf(codes.PermissionDenied, "denied")
+	err = ToGRPC(err)
+	if code := status.Code(err); code != codes.PermissionDenied {
+		t.Errorf("after ToGRPC, got error code %v, want %v, error: %v", code, codes.PermissionDenied, err)
+	}
+	err = FromGRPC(err)
+	if !trace.IsAccessDenied(err) {
+		t.Errorf("after FromGRPC, trace.IsAccessDenied is false, want true, error: %v", err)
+	}
 }
