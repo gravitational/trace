@@ -19,33 +19,42 @@ package trace
 import (
 	"errors"
 	"net/http/httptest"
+	"testing"
 
-	. "gopkg.in/check.v1"
+	"github.com/stretchr/testify/require"
 )
 
-type HttplibSuite struct{}
+func TestReplyJSON(t *testing.T) {
+	t.Parallel()
+	var (
+		errCode               = 400
+		errText               = "test error"
+		expectedErrorResponse = "" +
+			"{\n" +
+			"    \"error\": {\n" +
+			"        \"message\": \"" + errText + "\"\n" +
+			"    }\n" +
+			"}"
+	)
 
-var _ = Suite(&HttplibSuite{})
+	testCase := func(t *testing.T, err error) {
+		recorder := httptest.NewRecorder()
+		replyJSON(recorder, errCode, err)
+		require.Equal(t, expectedErrorResponse, recorder.Body.String())
+	}
 
-var (
-	errCode               = 400
-	errText               = "test error"
-	expectedErrorResponse = "" +
-		"{\n" +
-		"    \"error\": {\n" +
-		"        \"message\": \"" + errText + "\"\n" +
-		"    }\n" +
-		"}"
-)
-
-func (s *HttplibSuite) TestRegularErrorResponseJSON(c *C) {
-	recorder := httptest.NewRecorder()
-	replyJSON(recorder, errCode, errors.New(errText))
-	c.Assert(recorder.Body.String(), Equals, expectedErrorResponse)
+	testCase(t, errors.New("test error"))
+	testCase(t, &TraceErr{Err: errors.New("test error")})
 }
 
-func (s *HttplibSuite) TestTraceErrorResponseJSON(c *C) {
-	recorder := httptest.NewRecorder()
-	replyJSON(recorder, errCode, &TraceErr{Err: errors.New(errText)})
-	c.Assert(recorder.Body.String(), Equals, expectedErrorResponse)
+func TestUnmarshalError(t *testing.T) {
+	t.Parallel()
+	testCase := func(t *testing.T, err error, response string, isExpectedErr func(error) bool, expectedMsg string) {
+		readErr := unmarshalError(err, []byte(response))
+		require.True(t, isExpectedErr(readErr))
+		require.EqualError(t, readErr, expectedMsg)
+	}
+
+	testCase(t, &NotFoundError{}, `{"error": {"message": "ABC"}}`, IsNotFound, "ABC")
+	testCase(t, &AccessDeniedError{}, `{"error": {"message": "ABC"}}`, IsAccessDenied, "ABC")
 }
