@@ -39,14 +39,14 @@ func (e *TraceErr) MarshalJSON() ([]byte, error) {
 }
 
 // AddUserMessage adds user-friendly message describing the error nature
-func (e *TraceErr) AddUserMessage(formatArg interface{}, rest ...interface{}) *TraceErr {
+func (e *TraceErr) AddUserMessage(formatArg interface{}, rest ...interface{}) Error {
 	newMessage := fmt.Sprintf(fmt.Sprintf("%v", formatArg), rest...)
 	e.Messages = append(e.Messages, newMessage)
 	return e
 }
 
 // AddFields adds the given map of fields to the error being reported
-func (e *TraceErr) AddFields(fields map[string]interface{}) *TraceErr {
+func (e *TraceErr) AddFields(fields map[string]interface{}) Error {
 	if e.Fields == nil {
 		e.Fields = make(map[string]interface{}, len(fields))
 	}
@@ -57,7 +57,7 @@ func (e *TraceErr) AddFields(fields map[string]interface{}) *TraceErr {
 }
 
 // AddField adds a single field to the error wrapper as context for the error
-func (e *TraceErr) AddField(k string, v interface{}) *TraceErr {
+func (e *TraceErr) AddField(k string, v interface{}) Error {
 	if e.Fields == nil {
 		e.Fields = make(map[string]interface{}, 1)
 	}
@@ -273,13 +273,13 @@ type Error interface {
 	// usually works as fmt.Sprintf(formatArg, rest...)
 	// but implementations can choose another way, e.g. treat
 	// arguments as structured args
-	AddUserMessage(formatArg interface{}, rest ...interface{}) *TraceErr
+	AddUserMessage(formatArg interface{}, rest ...interface{}) Error
 
 	// AddField adds additional field information to the error
-	AddField(key string, value interface{}) *TraceErr
+	AddField(key string, value interface{}) Error
 
 	// AddFields adds a map of additional fields to the error
-	AddFields(fields map[string]interface{}) *TraceErr
+	AddFields(fields map[string]interface{}) Error
 
 	// GetFields returns any fields that have been added to the error
 	GetFields() map[string]interface{}
@@ -412,14 +412,12 @@ func WrapProxy(err error) *ProxyError {
 	if err == nil {
 		return nil
 	}
-	if err, ok := err.(*TraceErr); ok {
-		return &ProxyError{
-			TraceErr: err,
-		}
-	}
 	return &ProxyError{
 		// Do not include ReadError in the trace
-		TraceErr: Wrap(err, 3),
+		TraceErr: &TraceErr{
+			Err:    err,
+			traces: captureTraces(2),
+		},
 	}
 }
 
@@ -450,8 +448,22 @@ func (r *ProxyError) GoString() string {
 	return r.DebugReport()
 }
 
-func (r *ProxyError) OrigError() error {
-	return r.TraceErr.Err
+// AddUserMessage adds the specified message to this error value
+func (r *ProxyError) AddUserMessage(formatArg interface{}, rest ...interface{}) Error {
+	r.TraceErr.AddUserMessage(formatArg, rest...)
+	return r
+}
+
+// AddField adds the field specified with the given ke/value pair
+func (r *ProxyError) AddField(key string, value interface{}) Error {
+	r.TraceErr.AddField(key, value)
+	return r
+}
+
+//AddFields adds multiple fields as given with fields
+func (r *ProxyError) AddFields(fields map[string]interface{}) Error {
+	r.TraceErr.AddFields(fields)
+	return r
 }
 
 // ProxyError wraps another error

@@ -428,7 +428,8 @@ func (s *TraceSuite) TestWriteExternalErrors(c *C) {
 	WriteError(w, err)
 	extErr = ReadError(w.StatusCode, w.Body)
 	c.Assert(w.StatusCode, Equals, http.StatusInternalServerError)
-	c.Assert(strings.Replace(string(w.Body), "\n", "", -1), Matches, "*.snap.*")
+	c.Assert(string(w.Body), Matches, "(?s).*snap.*")
+	c.Assert(DebugReport(extErr), Matches, "(?s).*Caught:.*")
 	c.Assert(err.Error(), Equals, extErr.Error())
 }
 
