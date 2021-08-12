@@ -76,6 +76,7 @@ var DebugReport = internal.DebugReport
 type UserMessager = internal.UserMessager
 type ErrorWrapper = internal.ErrorWrapper
 type DebugReporter = internal.DebugReporter
+type RawTrace = internal.RawTrace
 
 // UserMessageWithFields returns user-friendly error with key-pairs as part of the message
 func UserMessageWithFields(err error) string {
