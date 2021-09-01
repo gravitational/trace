@@ -142,8 +142,8 @@ func newTrace(err error, depth int) *TraceErr {
 }
 
 type Traces = internal.Traces
-
 type TraceErr = internal.TraceErr
+type Trace = internal.Trace
 
 type Error = internal.Error
 
