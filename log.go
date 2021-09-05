@@ -167,7 +167,7 @@ type JSONFormatter struct {
 // Format implements logrus.Formatter interface
 func (j *JSONFormatter) Format(e *log.Entry) ([]byte, error) {
 	if cursor := findFrame(); cursor != nil {
-		t := internal.GetTracesFromCursor(*cursor)
+		t := internal.DecodeTracesFromCursor(*cursor)
 		new := e.WithFields(log.Fields{
 			FileField:     t.Loc(),
 			FunctionField: t.FuncName(),
@@ -184,7 +184,7 @@ func (j *JSONFormatter) Format(e *log.Entry) ([]byte, error) {
 // for output in the log
 func formatCallerWithPathAndLine() (path string) {
 	if cursor := findFrame(); cursor != nil {
-		t := internal.GetTracesFromCursor(*cursor)
+		t := internal.DecodeTracesFromCursor(*cursor)
 		return t.Loc()
 	}
 	return ""
@@ -209,9 +209,8 @@ func findFrame() *internal.FrameCursor {
 		frame, _ := frames.Next()
 		if !frameIgnorePattern.MatchString(frame.File) {
 			return &internal.FrameCursor{
+				// Limit the stack trace to the first matching frame
 				Current: &frame,
-				Rest:    frames,
-				N:       n,
 			}
 		}
 	}
