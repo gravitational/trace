@@ -25,7 +25,7 @@ import (
 )
 
 func TestReplyJSON(t *testing.T) {
-	t.Parallel()
+	SetDebug(false)
 	var (
 		errCode               = 400
 		errText               = "test error"
@@ -45,6 +45,7 @@ func TestReplyJSON(t *testing.T) {
 
 	testCase(t, errors.New("test error"))
 	testCase(t, &TraceErr{Err: errors.New("test error")})
+	testCase(t, &TraceErr{Err: errors.New("test error"), Traces: Traces{{Path: "A", Func: "B", Line: 1}}})
 }
 
 func TestUnmarshalError(t *testing.T) {
