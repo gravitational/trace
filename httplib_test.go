@@ -25,7 +25,7 @@ import (
 )
 
 func TestReplyJSON(t *testing.T) {
-	SetDebug(false)
+	t.Parallel()
 	var (
 		errCode               = 400
 		errText               = "test error"

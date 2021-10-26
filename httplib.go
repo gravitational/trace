@@ -94,10 +94,6 @@ func replyJSON(w http.ResponseWriter, code int, err error) {
 	if !ok {
 		obj = &TraceErr{Err: err}
 	}
-	// Don't leak the stack trace
-	if !IsDebug() {
-		obj.Traces = Traces{}
-	}
 	out, err = json.MarshalIndent(obj, "", "    ")
 	if err != nil {
 		out = []byte(fmt.Sprintf(`{"error": {"message": "internal marshal error: %v"}}`, err))
