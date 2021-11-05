@@ -45,7 +45,6 @@ func TestReplyJSON(t *testing.T) {
 		{"trace error", &TraceErr{Err: errors.New("test error")}},
 		{"trace error with stacktrace", &TraceErr{Err: errors.New("test error"), Traces: Traces{{Path: "A", Func: "B", Line: 1}}}},
 	} {
-		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
 			recorder := httptest.NewRecorder()
 			replyJSON(recorder, errCode, tc.err)
