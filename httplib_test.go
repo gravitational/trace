@@ -25,6 +25,7 @@ import (
 )
 
 func TestReplyJSON(t *testing.T) {
+	t.Parallel()
 	var (
 		errCode               = 400
 		errText               = "test error"
@@ -46,7 +47,6 @@ func TestReplyJSON(t *testing.T) {
 	} {
 		tc := tc
 		t.Run(tc.desc, func(t *testing.T) {
-			t.Parallel()
 			recorder := httptest.NewRecorder()
 			replyJSON(recorder, errCode, tc.err)
 			require.JSONEq(t, expectedErrorResponse, recorder.Body.String())
