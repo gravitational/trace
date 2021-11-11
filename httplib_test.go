@@ -37,14 +37,20 @@ func TestReplyJSON(t *testing.T) {
 			"}"
 	)
 
-	testCase := func(t *testing.T, err error) {
-		recorder := httptest.NewRecorder()
-		replyJSON(recorder, errCode, err)
-		require.Equal(t, expectedErrorResponse, recorder.Body.String())
+	for _, tc := range []struct {
+		desc string
+		err  error
+	}{
+		{"plain error", errors.New("test error")},
+		{"trace error", &TraceErr{Err: errors.New("test error")}},
+		{"trace error with stacktrace", &TraceErr{Err: errors.New("test error"), Traces: Traces{{Path: "A", Func: "B", Line: 1}}}},
+	} {
+		t.Run(tc.desc, func(t *testing.T) {
+			recorder := httptest.NewRecorder()
+			replyJSON(recorder, errCode, tc.err)
+			require.JSONEq(t, expectedErrorResponse, recorder.Body.String())
+		})
 	}
-
-	testCase(t, errors.New("test error"))
-	testCase(t, &TraceErr{Err: errors.New("test error")})
 }
 
 func TestUnmarshalError(t *testing.T) {
