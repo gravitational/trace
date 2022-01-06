@@ -17,29 +17,22 @@ limitations under the License.
 package trail
 
 import (
+	"fmt"
 	"io"
 	"strings"
 	"testing"
 
 	"github.com/gravitational/trace"
+	"github.com/stretchr/testify/require"
 
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
-	. "gopkg.in/check.v1"
 )
-
-func TestTrail(t *testing.T) { TestingT(t) }
-
-type TrailSuite struct {
-}
-
-var _ = Suite(&TrailSuite{})
 
 // TestConversion makes sure we convert all trace supported errors
 // to and back from GRPC codes
-func (s *TrailSuite) TestConversion(c *C) {
+func TestConversion(t *testing.T) {
 	type TestCase struct {
 		Error     error
 		Message   string
@@ -80,36 +73,36 @@ func (s *TrailSuite) TestConversion(c *C) {
 		},
 	}
 	for i, tc := range testCases {
-		comment := Commentf("test case #v", i+1)
+		comment := fmt.Sprintf("test case %v", i+1)
 		grpcError := ToGRPC(tc.Error)
-		c.Assert(grpc.ErrorDesc(grpcError), Equals, tc.Error.Error(), comment)
+		require.Equal(t, status.Convert(grpcError).Message(), tc.Error.Error(), comment)
 		out := FromGRPC(grpcError)
-		c.Assert(tc.Predicate(out), Equals, true, comment)
-		c.Assert(line(trace.DebugReport(out)), Matches, ".*trail_test.go.*")
-		c.Assert(line(trace.DebugReport(out)), Not(Matches), ".*trail.go.*")
+		require.True(t, tc.Predicate(out), comment)
+		require.Regexp(t,  ".*trail_test.go.*", line(trace.DebugReport(out)))
+		require.NotRegexp(t, ".*trail.go.*", line(trace.DebugReport(out)))
 	}
 }
 
 // TestNil makes sure conversions of nil to and from GRPC are no-op
-func (s *TrailSuite) TestNil(c *C) {
+func TestNil(t *testing.T) {
 	out := FromGRPC(ToGRPC(nil))
-	c.Assert(out, IsNil)
+	require.NoError(t, out)
 }
 
 // TestFromEOF makes sure that non-grpc error such as io.EOF is preserved well.
-func (s *TrailSuite) TestFromEOF(c *C) {
+func TestFromEOF(t *testing.T) {
 	out := FromGRPC(trace.Wrap(io.EOF))
-	c.Assert(trace.IsEOF(out), Equals, true)
+	require.True(t, trace.IsEOF(out))
 }
 
 // TestTraces makes sure we pass traces via metadata and can decode it back
-func (s *TrailSuite) TestTraces(c *C) {
+func TestTraces(t *testing.T) {
 	err := trace.BadParameter("param")
 	meta := metadata.New(nil)
 	SetDebugInfo(err, meta)
 	err2 := FromGRPC(ToGRPC(err), meta)
-	c.Assert(line(trace.DebugReport(err)), Matches, ".*trail_test.go.*")
-	c.Assert(line(trace.DebugReport(err2)), Matches, ".*trail_test.go.*")
+	require.Regexp(t, ".*trail_test.go.*", line(trace.DebugReport(err)))
+	require.Regexp(t, ".*trail_test.go.*", line(trace.DebugReport(err2)))
 }
 
 func line(s string) string {

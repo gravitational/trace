@@ -27,105 +27,99 @@ import (
 	"testing"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/require"
 	"golang.org/x/net/context"
-	. "gopkg.in/check.v1"
 )
 
-func TestTrace(t *testing.T) { TestingT(t) }
-
-type TraceSuite struct{}
-
-var _ = Suite(&TraceSuite{})
-
-func (s *TraceSuite) TestEmpty(c *C) {
-	c.Assert(DebugReport(nil), Equals, "")
-	c.Assert(UserMessage(nil), Equals, "")
-	c.Assert(UserMessageWithFields(nil), Equals, "")
-	c.Assert(GetFields(nil), DeepEquals, map[string]interface{}{})
+func TestEmpty(t *testing.T) {
+	require.Equal(t, DebugReport(nil), "")
+	require.Equal(t, UserMessage(nil), "")
+	require.Equal(t, UserMessageWithFields(nil), "")
+	require.Equal(t, GetFields(nil), map[string]interface{}{})
 }
 
-func (s *TraceSuite) TestWrap(c *C) {
+func TestWrap(t *testing.T) {
 	testErr := &testError{Param: "param"}
 	err := Wrap(Wrap(testErr))
 
-	c.Assert(line(DebugReport(err)), Matches, ".*trace_test.go.*")
-	c.Assert(line(DebugReport(err)), Not(Matches), ".*trace.go.*")
-	c.Assert(line(UserMessage(err)), Not(Matches), ".*trace_test.go.*")
-	c.Assert(line(UserMessage(err)), Matches, ".*param.*")
+	require.Regexp(t, ".*trace_test.go.*", line(DebugReport(err)))
+	require.NotRegexp(t, ".*trace.go.*",line(DebugReport(err)))
+	require.NotRegexp(t,  ".*trace_test.go.*",line(UserMessage(err)))
+	require.Regexp(t,  ".*param.*",line(UserMessage(err)))
 }
 
-func (s *TraceSuite) TestOrigError(c *C) {
+func TestOrigError(t *testing.T) {
 	testErr := fmt.Errorf("some error")
 	err := Wrap(Wrap(testErr))
-	c.Assert(err.OrigError(), Equals, testErr)
+	require.Equal(t, err.OrigError(), testErr)
 }
 
-func (s *TraceSuite) TestIsEOF(c *C) {
-	c.Assert(IsEOF(io.EOF), Equals, true)
-	c.Assert(IsEOF(Wrap(io.EOF)), Equals, true)
+func TestIsEOF(t *testing.T) {
+	require.True(t, IsEOF(io.EOF))
+	require.True(t, IsEOF(Wrap(io.EOF)))
 }
 
-func (s *TraceSuite) TestWrapUserMessage(c *C) {
+func TestWrapUserMessage(t *testing.T) {
 	testErr := fmt.Errorf("description")
 
 	err := Wrap(testErr, "user message")
-	c.Assert(line(DebugReport(err)), Matches, "*.trace_test.go.*")
-	c.Assert(line(DebugReport(err)), Not(Matches), "*.trace.go.*")
-	c.Assert(line(UserMessage(err)), Equals, "user message\tdescription")
+	require.Regexp(t, ".*trace_test.go.*", line(DebugReport(err)))
+	require.NotRegexp(t, ".*trace.go.*", line(DebugReport(err)))
+	require.Equal(t, line(UserMessage(err)), "user message\tdescription")
 
 	err = Wrap(err, "user message 2")
-	c.Assert(line(UserMessage(err)), Equals, "user message 2\tuser message\t\tdescription")
+	require.Equal(t, line(UserMessage(err)), "user message 2\tuser message\t\tdescription")
 }
 
-func (s *TraceSuite) TestWrapWithMessage(c *C) {
+func TestWrapWithMessage(t *testing.T) {
 	testErr := fmt.Errorf("description")
 	err := WrapWithMessage(testErr, "user message")
-	c.Assert(line(UserMessage(err)), Equals, "user message\tdescription")
-	c.Assert(line(DebugReport(err)), Matches, "*.trace_test.go.*")
-	c.Assert(line(DebugReport(err)), Not(Matches), "*.trace.go.*")
+	require.Equal(t, line(UserMessage(err)), "user message\tdescription")
+	require.Regexp(t, ".*trace_test.go.*", line(DebugReport(err)))
+	require.NotRegexp(t, ".*trace.go.*", line(DebugReport(err)))
 }
 
-func (s *TraceSuite) TestUserMessageWithFields(c *C) {
+func TestUserMessageWithFields(t *testing.T) {
 	testErr := fmt.Errorf("description")
-	c.Assert(UserMessageWithFields(testErr), Equals, testErr.Error())
+	require.Equal(t, UserMessageWithFields(testErr), testErr.Error())
 
 	err := Wrap(testErr, "user message")
-	c.Assert(line(UserMessageWithFields(err)), Equals, "user message\tdescription")
+	require.Equal(t, line(UserMessageWithFields(err)), "user message\tdescription")
 
 	err.AddField("test_key", "test_value")
-	c.Assert(line(UserMessageWithFields(err)), Equals, "test_key=\"test_value\" user message\tdescription")
+	require.Equal(t, line(UserMessageWithFields(err)), "test_key=\"test_value\" user message\tdescription")
 }
 
-func (s *TraceSuite) TestGetFields(c *C) {
+func TestGetFields(t *testing.T) {
 	testErr := fmt.Errorf("description")
-	c.Assert(GetFields(testErr), DeepEquals, map[string]interface{}{})
+	require.Equal(t, GetFields(testErr), map[string]interface{}{})
 
 	fields := map[string]interface{}{
 		"test_key": "test_value",
 	}
 	err := Wrap(testErr).AddFields(fields)
-	c.Assert(GetFields(err), DeepEquals, fields)
+	require.Equal(t, GetFields(err), fields)
 }
 
-func (s *TraceSuite) TestWrapNil(c *C) {
+func TestWrapNil(t *testing.T) {
 	err1 := Wrap(nil, "message: %v", "extra")
-	c.Assert(err1, IsNil)
+	require.NoError(t, err1)
 
 	var err2 error
 	err2 = nil
 
 	err3 := Wrap(err2)
-	c.Assert(err3, IsNil)
+	require.NoError(t, err3)
 
 	err4 := Wrap(err3)
-	c.Assert(err4, IsNil)
+	require.NoError(t, err4)
 }
 
-func (s *TraceSuite) TestWrapStdlibErrors(c *C) {
-	c.Assert(IsNotFound(os.ErrNotExist), Equals, true)
+func TestWrapStdlibErrors(t *testing.T) {
+	require.True(t, IsNotFound(os.ErrNotExist))
 }
 
-func (s *TraceSuite) TestLogFormatter(c *C) {
+func TestLogFormatter(t *testing.T) {
 	for _, f := range []log.Formatter{&TextFormatter{}, &JSONFormatter{}} {
 		log.SetFormatter(f)
 
@@ -133,12 +127,12 @@ func (s *TraceSuite) TestLogFormatter(c *C) {
 		var buf bytes.Buffer
 		log.SetOutput(&buf)
 		log.Infof("hello")
-		c.Assert(line(buf.String()), Matches, ".*trace_test.go.*")
+		require.Regexp(t, ".*trace_test.go.*", line(buf.String()))
 
 		// check case with embedded Infof
 		buf.Reset()
 		log.WithFields(log.Fields{"a": "b"}).Infof("hello")
-		c.Assert(line(buf.String()), Matches, ".*trace_test.go.*")
+		require.Regexp(t, ".*trace_test.go.*", line(buf.String()))
 	}
 }
 
@@ -148,7 +142,7 @@ func (p panicker) String() string {
 	panic(p)
 }
 
-func (s *TraceSuite) TestTextFormatter(c *C) {
+func TestTextFormatter(t *testing.T) {
 	padding := 6
 	f := &TextFormatter{
 		DisableTimestamp: true,
@@ -241,15 +235,15 @@ func (s *TraceSuite) TestTextFormatter(c *C) {
 	}
 
 	for i, tc := range testCases {
-		comment := Commentf("test case %v %v, expected match: %v", i+1, tc.comment, tc.match)
+		comment := fmt.Sprintf("test case %v %v, expected match: %v", i+1, tc.comment, tc.match)
 		buf := &bytes.Buffer{}
 		log.SetOutput(buf)
 		tc.log()
-		c.Assert(line(buf.String()), Matches, tc.match, comment)
+		require.Regexp(t, tc.match, line(buf.String()), comment)
 	}
 }
 
-func (s *TraceSuite) TestTextFormatterWithColors(c *C) {
+func TestTextFormatterWithColors(t *testing.T) {
 	padding := 6
 	f := &TextFormatter{
 		DisableTimestamp: true,
@@ -313,16 +307,16 @@ func (s *TraceSuite) TestTextFormatterWithColors(c *C) {
 	}
 
 	for i, tc := range testCases {
-		comment := Commentf("test case %v %v, expected match: %v", i+1, tc.comment, tc.match)
+		comment := fmt.Sprintf("test case %v %v, expected match: %v", i+1, tc.comment, tc.match)
 		buf := &bytes.Buffer{}
 		log.SetOutput(buf)
 		log.SetLevel(log.DebugLevel)
 		tc.log()
-		c.Assert(line(buf.String()), Matches, tc.match, comment)
+		require.Regexp(t, tc.match, line(buf.String()), comment)
 	}
 }
 
-func (s *TraceSuite) TestGenericErrors(c *C) {
+func TestGenericErrors(t *testing.T) {
 	testCases := []struct {
 		Err        Error
 		Predicate  func(error) bool
@@ -380,57 +374,57 @@ func (s *TraceSuite) TestGenericErrors(c *C) {
 	}
 
 	for _, testCase := range testCases {
-		comment := Commentf(testCase.comment)
+		comment := testCase.comment
 		SetDebug(true)
 		err := testCase.Err
 
 		var traceErr *TraceErr
 		var ok bool
 		if traceErr, ok = err.(*TraceErr); !ok {
-			c.Fatal("Expected error to be of type *TraceErr")
+			t.Fatal("Expected error to be of type *TraceErr")
 		}
-		c.Assert(len(traceErr.Traces), Not(Equals), 0, comment)
-		c.Assert(line(DebugReport(err)), Matches, "*.trace_test.go.*", comment)
-		c.Assert(line(DebugReport(err)), Not(Matches), "*.errors.go.*", comment)
-		c.Assert(line(DebugReport(err)), Not(Matches), "*.trace.go.*", comment)
-		c.Assert(testCase.Predicate(err), Equals, true, comment)
+		require.NotEqual(t, len(traceErr.Traces), 0, comment)
+		require.Regexp(t, ".*.trace_test.go.*", line(DebugReport(err)), comment)
+		require.NotRegexp(t, ".*.errors.go.*", line(DebugReport(err)), comment)
+		require.NotRegexp(t, ".*.trace.go.*", line(DebugReport(err)), comment)
+		require.True(t, testCase.Predicate(err), comment)
 
 		w := newTestWriter()
 		WriteError(w, err)
 
 		outErr := ReadError(w.StatusCode, w.Body)
 		if _, ok := outErr.(proxyError); !ok {
-			c.Fatal("Expected error to be of type proxyError")
+			t.Fatal("Expected error to be of type proxyError")
 		}
-		c.Assert(testCase.Predicate(outErr), Equals, true, comment)
+		require.True(t, testCase.Predicate(outErr), comment)
 
 		SetDebug(false)
 		w = newTestWriter()
 		WriteError(w, err)
 		outErr = ReadError(w.StatusCode, w.Body)
-		c.Assert(testCase.Predicate(outErr), Equals, true, comment)
+		require.True(t, testCase.Predicate(outErr), comment)
 	}
 }
 
 // Make sure we write some output produced by standard errors
-func (s *TraceSuite) TestWriteExternalErrors(c *C) {
+func TestWriteExternalErrors(t *testing.T) {
 	err := Wrap(fmt.Errorf("snap!"))
 
 	SetDebug(true)
 	w := newTestWriter()
 	WriteError(w, err)
 	extErr := ReadError(w.StatusCode, w.Body)
-	c.Assert(w.StatusCode, Equals, http.StatusInternalServerError)
-	c.Assert(strings.Replace(string(w.Body), "\n", "", -1), Matches, "*.snap.*")
-	c.Assert(err.Error(), Equals, extErr.Error())
+	require.Equal(t, w.StatusCode, http.StatusInternalServerError)
+	require.Regexp(t, ".*.snap.*", strings.Replace(string(w.Body), "\n", "", -1))
+	require.Equal(t, err.Error(), extErr.Error())
 
 	SetDebug(false)
 	w = newTestWriter()
 	WriteError(w, err)
 	extErr = ReadError(w.StatusCode, w.Body)
-	c.Assert(w.StatusCode, Equals, http.StatusInternalServerError)
-	c.Assert(strings.Replace(string(w.Body), "\n", "", -1), Matches, "*.snap.*")
-	c.Assert(err.Error(), Equals, extErr.Error())
+	require.Equal(t, w.StatusCode, http.StatusInternalServerError)
+	require.Regexp(t, ".*.snap.*", strings.Replace(string(w.Body), "\n", "", -1))
+	require.Equal(t, err.Error(), extErr.Error())
 }
 
 type netError struct {
@@ -440,49 +434,48 @@ func (e *netError) Error() string   { return "net" }
 func (e *netError) Timeout() bool   { return true }
 func (e *netError) Temporary() bool { return true }
 
-func (s *TraceSuite) TestConvert(c *C) {
+func TestConvert(t *testing.T) {
 	err := ConvertSystemError(&netError{})
-	c.Assert(IsConnectionProblem(err), Equals, true, Commentf("failed to detect network error"))
+	require.True(t, IsConnectionProblem(err), "failed to detect network error")
 
-	dir := c.MkDir()
-	err = os.Mkdir(dir, 0770)
+	err = os.Mkdir(t.TempDir(), 0770)
 	err = ConvertSystemError(err)
-	c.Assert(IsAlreadyExists(err), Equals, true, Commentf("expected AlreadyExists error, got %T", err))
+	require.True(t, IsAlreadyExists(err), "expected AlreadyExists error, got %T", err)
 }
 
-func (s *TraceSuite) TestAggregates(c *C) {
+func TestAggregates(t *testing.T) {
 	err1 := Errorf("failed one")
 	err2 := Errorf("failed two")
 	err := NewAggregate(err1, err2)
-	c.Assert(IsAggregate(err), Equals, true)
+	require.True(t, IsAggregate(err))
 	agg := Unwrap(err).(Aggregate)
-	c.Assert(agg.Errors(), DeepEquals, []error{err1, err2})
-	c.Assert(err.Error(), DeepEquals, "failed one, failed two")
+	require.Equal(t, agg.Errors(), []error{err1, err2})
+	require.Equal(t, err.Error(), "failed one, failed two")
 }
 
-func (s *TraceSuite) TestErrorf(c *C) {
+func TestErrorf(t *testing.T) {
 	err := Errorf("error")
-	c.Assert(line(DebugReport(err)), Matches, "*.trace_test.go.*")
-	c.Assert(line(DebugReport(err)), Not(Matches), "*.Fields.*")
-	c.Assert(err.(*TraceErr).Messages, DeepEquals, []string(nil))
+	require.Regexp(t, ".*.trace_test.go.*", line(DebugReport(err)))
+	require.NotRegexp(t, ".*.Fields.*", line(DebugReport(err)))
+	require.Equal(t, err.(*TraceErr).Messages, []string(nil))
 }
 
-func (s *TraceSuite) TestWithField(c *C) {
+func TestWithField(t *testing.T) {
 	err := Wrap(Errorf("error")).AddField("testfield", true)
-	c.Assert(line(DebugReport(err)), Matches, "*.testfield.*")
+	require.Regexp(t, ".*.testfield.*", line(DebugReport(err)))
 }
 
-func (s *TraceSuite) TestWithFields(c *C) {
+func TestWithFields(t *testing.T) {
 	err := Wrap(Errorf("error")).AddFields(map[string]interface{}{
 		"testfield1": true,
 		"testfield2": "value2",
 	})
-	c.Assert(line(DebugReport(err)), Matches, "*.Fields.*")
-	c.Assert(line(DebugReport(err)), Matches, "*.testfield1: true.*")
-	c.Assert(line(DebugReport(err)), Matches, "*.testfield2: value2.*")
+	require.Regexp(t, ".*.Fields.*", line(DebugReport(err)))
+	require.Regexp(t, ".*.testfield1: true.*", line(DebugReport(err)))
+	require.Regexp(t, ".*.testfield2: value2.*", line(DebugReport(err)))
 }
 
-func (s *TraceSuite) TestAggregateConvertsToCommonErrors(c *C) {
+func TestAggregateConvertsToCommonErrors(t *testing.T) {
 	testCases := []struct {
 		Err                error
 		Predicate          func(error) bool
@@ -514,60 +507,67 @@ func (s *TraceSuite) TestAggregateConvertsToCommonErrors(c *C) {
 		},
 	}
 	for _, testCase := range testCases {
-		comment := Commentf(testCase.comment)
+		comment := testCase.comment
 		SetDebug(true)
 		err := testCase.Err
 
-		c.Assert(line(DebugReport(err)), Matches, "*.trace_test.go.*", comment)
-		c.Assert(testCase.Predicate(err), Equals, true, comment)
+		require.Regexp(t, ".*.trace_test.go.*", line(DebugReport(err)), comment)
+		require.True(t, testCase.Predicate(err), comment)
 
 		w := newTestWriter()
 		WriteError(w, err)
 		outErr := ReadError(w.StatusCode, w.Body)
-		c.Assert(testCase.RoundtripPredicate(outErr), Equals, true, comment)
+		require.True(t, testCase.RoundtripPredicate(outErr), comment)
 
 		SetDebug(false)
 		w = newTestWriter()
 		WriteError(w, err)
 		outErr = ReadError(w.StatusCode, w.Body)
-		c.Assert(testCase.RoundtripPredicate(outErr), Equals, true, comment)
+		require.True(t, testCase.RoundtripPredicate(outErr), comment)
 	}
 }
 
-func (s *TraceSuite) TestAggregateThrowAwayNils(c *C) {
+func TestAggregateThrowAwayNils(t *testing.T) {
 	err := NewAggregate(fmt.Errorf("error1"), nil, fmt.Errorf("error2"))
-	c.Assert(err.Error(), Not(Matches), ".*nil.*")
+	require.NotRegexp(t, ".*nil.*", err.Error())
 }
 
-func (s *TraceSuite) TestAggregateAllNils(c *C) {
-	c.Assert(NewAggregate(nil, nil, nil), IsNil)
+func TestAggregateAllNils(t *testing.T) {
+	require.Nil(t, NewAggregate(nil, nil, nil))
 }
 
-func (s *TraceSuite) TestAggregateFromChannel(c *C) {
+func TestAggregateFromChannel(t *testing.T) {
 	errCh := make(chan error, 3)
 	errCh <- fmt.Errorf("Snap!")
 	errCh <- fmt.Errorf("BAM")
 	errCh <- fmt.Errorf("omg")
 	close(errCh)
 	err := NewAggregateFromChannel(errCh, context.Background())
-	c.Assert(err.Error(), Matches, ".*Snap!.*")
-	c.Assert(err.Error(), Matches, ".*BAM.*")
-	c.Assert(err.Error(), Matches, ".*omg.*")
+	require.Error(t, err)
+	require.Regexp(t, ".*Snap!.*", err.Error())
+	require.Regexp(t, ".*BAM.*", err.Error())
+	require.Regexp(t, ".*omg.*", err.Error())
 }
 
-func (s *TraceSuite) TestAggregateFromChannelCancel(c *C) {
-	errCh := make(chan error, 3)
+func TestAggregateFromChannelCancel(t *testing.T) {
+	ctx, cancel := context.WithCancel(context.Background())
+	errCh := make(chan error)
+	outCh := make(chan error)
+	go func() {
+		outCh <- NewAggregateFromChannel(errCh, ctx)
+	}()
 	errCh <- fmt.Errorf("Snap!")
 	errCh <- fmt.Errorf("BAM")
 	errCh <- fmt.Errorf("omg")
-	ctx, cancel := context.WithCancel(context.Background())
-	// we never closed the channel so we just need to make sure
+	// we never closed the channel, so we just need to make sure
 	// the function exits when we cancel it
 	cancel()
-	NewAggregateFromChannel(errCh, ctx)
+
+	err := <- outCh
+	require.Error(t, err)
 }
 
-func (s *TraceSuite) TestCompositeErrorsCanProperlyUnwrap(c *C) {
+func TestCompositeErrorsCanProperlyUnwrap(t *testing.T) {
 	var testCases = []struct {
 		err            error
 		message        string
@@ -589,11 +589,10 @@ func (s *TraceSuite) TestCompositeErrorsCanProperlyUnwrap(c *C) {
 			wrappedMessage: "access denied",
 		},
 	}
-	var wrapper ErrorWrapper
 	for _, tt := range testCases {
-		c.Assert(tt.err.Error(), Equals, tt.message)
-		c.Assert(Unwrap(tt.err), Implements, &wrapper)
-		c.Assert(Unwrap(tt.err).(ErrorWrapper).OrigError().Error(), Equals, tt.wrappedMessage)
+		require.Equal(t, tt.err.Error(), tt.message)
+		require.Implements(t, (*ErrorWrapper)(nil), Unwrap(tt.err))
+		require.Equal(t, Unwrap(tt.err).(ErrorWrapper).OrigError().Error(), tt.wrappedMessage)
 	}
 }
 

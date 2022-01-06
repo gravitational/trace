@@ -355,7 +355,7 @@ type Error interface {
 	DebugReporter
 	UserMessager
 
-	// AddMessage adds formatted user-facing message
+	// AddUserMessage adds formatted user-facing message
 	// to the error, depends on the implementation,
 	// usually works as fmt.Sprintf(formatArg, rest...)
 	// but implementations can choose another way, e.g. treat

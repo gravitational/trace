@@ -18,17 +18,14 @@ package trace
 
 import (
 	"io/ioutil"
+	"testing"
 
 	"github.com/jonboulle/clockwork"
 	log "github.com/sirupsen/logrus"
-	. "gopkg.in/check.v1"
+
 )
 
-type HooksSuite struct{}
-
-var _ = Suite(&HooksSuite{})
-
-func (s *HooksSuite) TestSafeForConcurrentAccess(c *C) {
+func TestSafeForConcurrentAccess(t *testing.T) {
 	logger := log.New()
 	logger.Out = ioutil.Discard
 	entry := logger.WithFields(log.Fields{"foo": "bar"})
