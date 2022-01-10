@@ -190,7 +190,7 @@ func formatCallerWithPathAndLine() (path string) {
 	return ""
 }
 
-var frameIgnorePattern = regexp.MustCompile(`github\.com/(S|s)irupsen/logrus`)
+var frameIgnorePattern = regexp.MustCompile(`github\.com/sirupsen/logrus`)
 
 // findFrames positions the stack pointer to the first
 // function that does not match the frameIngorePattern
@@ -207,7 +207,7 @@ func findFrame() *internal.FrameCursor {
 	frames := runtime.CallersFrames(pcs)
 	for i := 0; i < n; i++ {
 		frame, _ := frames.Next()
-		if !frameIgnorePattern.MatchString(frame.File) {
+		if !frameIgnorePattern.MatchString(frame.Function) {
 			return &internal.FrameCursor{
 				Current: &frame,
 				Rest:    frames,
