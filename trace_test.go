@@ -72,8 +72,8 @@ func (s *TraceSuite) TestWrapUserMessage() {
 	testErr := fmt.Errorf("description")
 
 	err := Wrap(testErr, "user message")
-  s.Regexp(".*trace_test.go.*", line(DebugReport(err)))
-  s.NotRegexp(".*trace.go.*", line(DebugReport(err)))
+	s.Regexp(".*trace_test.go.*", line(DebugReport(err)))
+	s.NotRegexp(".*trace.go.*", line(DebugReport(err)))
 	s.Equal("user message\tdescription", line(UserMessage(err)))
 
 	err = Wrap(err, "user message 2")
@@ -83,8 +83,8 @@ func (s *TraceSuite) TestWrapUserMessage() {
 func (s *TraceSuite) TestWrapWithMessage() {
 	testErr := fmt.Errorf("description")
 	err := WrapWithMessage(testErr, "user message")
-  s.Equal("user message\tdescription", line(UserMessage(err)))
-  s.Regexp( ".*trace_test.go.*", line(DebugReport(err)))
+	s.Equal("user message\tdescription", line(UserMessage(err)))
+	s.Regexp(".*trace_test.go.*", line(DebugReport(err)))
 	s.NotRegexp(".*trace.go.*", line(DebugReport(err)))
 }
 
@@ -394,7 +394,7 @@ func (s *TraceSuite) TestGenericErrors() {
 		s.Regexp(".*.trace_test\\.go.*", line(DebugReport(err)), testCase.comment)
 		s.NotRegexp(".*.errors\\.go.*", line(DebugReport(err)), testCase.comment)
 		s.NotRegexp(".*.trace\\.go.*", line(DebugReport(err)), testCase.comment)
-    s.True(testCase.Predicate(err), testCase.comment)
+		s.True(testCase.Predicate(err), testCase.comment)
 
 		w := newTestWriter()
 		WriteError(w, err)
@@ -575,7 +575,7 @@ func (s *TraceSuite) TestAggregateFromChannelCancel() {
 	// the function exits when we cancel it
 	cancel()
 
-	err := <- outCh
+	err := <-outCh
 	s.Error(err)
 }
 
@@ -605,7 +605,7 @@ func (s *TraceSuite) TestCompositeErrorsCanProperlyUnwrap() {
 	for _, tt := range testCases {
 		s.Equal(tt.message, tt.err.Error())
 		s.Implements(&wrapper, Unwrap(tt.err))
-		s.Equal(tt.wrappedMessage, Unwrap( tt.err).(ErrorWrapper).OrigError().Error())
+		s.Equal(tt.wrappedMessage, Unwrap(tt.err).(ErrorWrapper).OrigError().Error())
 	}
 }
 
