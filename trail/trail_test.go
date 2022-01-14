@@ -97,9 +97,9 @@ func (s *TrailSuite) TestNil() {
 }
 
 // TestFromEOF makes sure that non-grpc error such as io.EOF is preserved well.
-func (s *TrailSuite) TestFromEOF(c *C) {
+func (s *TrailSuite) TestFromEOF() {
 	out := FromGRPC(trace.Wrap(io.EOF))
-	c.Assert(trace.IsEOF(out), Equals, true)
+	s.True(trace.IsEOF(out))
 }
 
 // TestTraces makes sure we pass traces via metadata and can decode it back
