@@ -562,20 +562,24 @@ func (s *TraceSuite) TestAggregateFromChannel() {
 }
 
 func (s *TraceSuite) TestAggregateFromChannelCancel() {
-	errCh := make(chan error, 3)
+	ctx, cancel := context.WithCancel(context.Background())
+	errCh := make(chan error)
+	outCh := make(chan error)
+	go func() {
+		outCh <- NewAggregateFromChannel(errCh, ctx)
+	}()
 	errCh <- fmt.Errorf("Snap!")
 	errCh <- fmt.Errorf("BAM")
 	errCh <- fmt.Errorf("omg")
-
-	ctx, cancel := context.WithCancel(context.Background())
-	// we never closed the channel so we just need to make sure
+	// we never closed the channel, so we just need to make sure
 	// the function exits when we cancel it
 	cancel()
 
-	_ = NewAggregateFromChannel(errCh, ctx)
+	err := <- outCh
+	s.Error(err)
 }
 
-func (s *TraceSuite) TestCompositeErrorsCanProperlyUnwrap(c *C) {
+func (s *TraceSuite) TestCompositeErrorsCanProperlyUnwrap() {
 	var testCases = []struct {
 		err            error
 		message        string
@@ -599,9 +603,9 @@ func (s *TraceSuite) TestCompositeErrorsCanProperlyUnwrap(c *C) {
 	}
 	var wrapper ErrorWrapper
 	for _, tt := range testCases {
-		c.Assert(tt.err.Error(), Equals, tt.message)
-		c.Assert(Unwrap(tt.err), Implements, &wrapper)
-		c.Assert(Unwrap(tt.err).(ErrorWrapper).OrigError().Error(), Equals, tt.wrappedMessage)
+		s.Equal(tt.message, tt.err.Error())
+		s.Implements(&wrapper, Unwrap(tt.err))
+		s.Equal(tt.wrappedMessage, Unwrap( tt.err).(ErrorWrapper).OrigError().Error())
 	}
 }
 
