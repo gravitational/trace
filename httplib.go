@@ -88,15 +88,15 @@ func replyJSON(w http.ResponseWriter, code int, err error) {
 	w.Header().Set("Content-Type", "application/json")
 	w.WriteHeader(code)
 	var out []byte
-	// trace error can marshal itself,
-	// otherwise capture error message and marshal it explicitly
-	var obj interface{} = err
-	if _, ok := err.(*TraceErr); !ok {
-		obj = RawTrace{Message: err.Error()}
+	// wrap regular errors in order to achieve unification
+	// and provide structurally consistent responses
+	obj, ok := err.(*TraceErr)
+	if !ok {
+		obj = &TraceErr{Err: err}
 	}
 	out, err = json.MarshalIndent(obj, "", "    ")
 	if err != nil {
-		out = []byte(fmt.Sprintf(`{"message": "internal marshal error: %v"}`, err))
+		out = []byte(fmt.Sprintf(`{"error": {"message": "internal marshal error: %v"}}`, err))
 	}
 	w.Write(out)
 }
@@ -109,7 +109,7 @@ func unmarshalError(err error, responseBody []byte) error {
 	if err2 := json.Unmarshal(responseBody, &raw); err2 != nil {
 		return err
 	}
-	if len(raw.Traces) != 0 && len(raw.Err) != 0 {
+	if len(raw.Err) != 0 {
 		err2 := json.Unmarshal(raw.Err, err)
 		if err2 != nil {
 			return err

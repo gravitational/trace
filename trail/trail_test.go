@@ -17,6 +17,7 @@ limitations under the License.
 package trail
 
 import (
+	"io"
 	"strings"
 	"testing"
 
@@ -24,7 +25,9 @@ import (
 
 	"github.com/stretchr/testify/suite"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
+	"google.golang.org/grpc/status"
 )
 
 func TestTrail(t *testing.T) {
@@ -82,6 +85,8 @@ func (s *TrailSuite) TestConversion() {
 		s.Equal(tc.Error.Error(), grpc.ErrorDesc(grpcError), "test case #v", i+1)
 		out := FromGRPC(grpcError)
 		s.True(tc.Predicate(out), "test case #v", i+1)
+    s.Regexp(".*trail_test.go.*", line(trace.DebugReport(out)))
+    s.NotRegexp(".*trail.go.*", line(trace.DebugReport(out)))
 	}
 }
 
@@ -89,6 +94,12 @@ func (s *TrailSuite) TestConversion() {
 func (s *TrailSuite) TestNil() {
 	out := FromGRPC(ToGRPC(nil))
 	s.Nil(out)
+}
+
+// TestFromEOF makes sure that non-grpc error such as io.EOF is preserved well.
+func (s *TrailSuite) TestFromEOF(c *C) {
+	out := FromGRPC(trace.Wrap(io.EOF))
+	c.Assert(trace.IsEOF(out), Equals, true)
 }
 
 // TestTraces makes sure we pass traces via metadata and can decode it back
@@ -103,4 +114,16 @@ func (s *TrailSuite) TestTraces() {
 
 func line(s string) string {
 	return strings.Replace(s, "\n", "", -1)
+}
+
+func TestToGRPCKeepCode(t *testing.T) {
+	err := status.Errorf(codes.PermissionDenied, "denied")
+	err = ToGRPC(err)
+	if code := status.Code(err); code != codes.PermissionDenied {
+		t.Errorf("after ToGRPC, got error code %v, want %v, error: %v", code, codes.PermissionDenied, err)
+	}
+	err = FromGRPC(err)
+	if !trace.IsAccessDenied(err) {
+		t.Errorf("after FromGRPC, trace.IsAccessDenied is false, want true, error: %v", err)
+	}
 }

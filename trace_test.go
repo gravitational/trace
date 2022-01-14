@@ -19,6 +19,7 @@ package trace
 import (
 	"bytes"
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net/http"
@@ -50,6 +51,7 @@ func (s *TraceSuite) TestWrap() {
 	err := Wrap(Wrap(testErr))
 
 	s.Regexp(".*trace_test.go.*", line(DebugReport(err)))
+	s.NotRegexp(".*trace.go.*", line(DebugReport(err)))
 	s.NotRegexp(".*trace_test.go.*", line(UserMessage(err)))
 	s.Regexp(".*param.*", line(UserMessage(err)))
 }
@@ -70,10 +72,20 @@ func (s *TraceSuite) TestWrapUserMessage() {
 	testErr := fmt.Errorf("description")
 
 	err := Wrap(testErr, "user message")
+  s.Regexp(".*trace_test.go.*", line(DebugReport(err)))
+  s.NotRegexp(".*trace.go.*", line(DebugReport(err)))
 	s.Equal("user message\tdescription", line(UserMessage(err)))
 
 	err = Wrap(err, "user message 2")
 	s.Equal("user message 2\tuser message\t\tdescription", line(UserMessage(err)))
+}
+
+func (s *TraceSuite) TestWrapWithMessage() {
+	testErr := fmt.Errorf("description")
+	err := WrapWithMessage(testErr, "user message")
+  s.Equal("user message\tdescription", line(UserMessage(err)))
+  s.Regexp( ".*trace_test.go.*", line(DebugReport(err)))
+	s.NotRegexp(".*trace.go.*", line(DebugReport(err)))
 }
 
 func (s *TraceSuite) TestUserMessageWithFields() {
@@ -380,7 +392,9 @@ func (s *TraceSuite) TestGenericErrors() {
 
 		s.NotEmpty(traceErr.Traces, testCase.comment)
 		s.Regexp(".*.trace_test\\.go.*", line(DebugReport(err)), testCase.comment)
-		s.True(testCase.Predicate(err), testCase.comment)
+		s.NotRegexp(".*.errors\\.go.*", line(DebugReport(err)), testCase.comment)
+		s.NotRegexp(".*.trace\\.go.*", line(DebugReport(err)), testCase.comment)
+    s.True(testCase.Predicate(err), testCase.comment)
 
 		w := newTestWriter()
 		WriteError(w, err)
@@ -561,6 +575,36 @@ func (s *TraceSuite) TestAggregateFromChannelCancel() {
 	_ = NewAggregateFromChannel(errCh, ctx)
 }
 
+func (s *TraceSuite) TestCompositeErrorsCanProperlyUnwrap(c *C) {
+	var testCases = []struct {
+		err            error
+		message        string
+		wrappedMessage string
+	}{
+		{
+			err:            ConnectionProblem(fmt.Errorf("internal error"), "failed to connect"),
+			message:        "failed to connect",
+			wrappedMessage: "internal error",
+		},
+		{
+			err:            Retry(fmt.Errorf("transient error"), "connection refused"),
+			message:        "connection refused",
+			wrappedMessage: "transient error",
+		},
+		{
+			err:            Trust(fmt.Errorf("access denied"), "failed to validate"),
+			message:        "failed to validate",
+			wrappedMessage: "access denied",
+		},
+	}
+	var wrapper ErrorWrapper
+	for _, tt := range testCases {
+		c.Assert(tt.err.Error(), Equals, tt.message)
+		c.Assert(Unwrap(tt.err), Implements, &wrapper)
+		c.Assert(Unwrap(tt.err).(ErrorWrapper).OrigError().Error(), Equals, tt.wrappedMessage)
+	}
+}
+
 type testError struct {
 	Param string
 }
@@ -600,4 +644,44 @@ func (tw *testWriter) WriteHeader(code int) {
 
 func line(s string) string {
 	return strings.Replace(s, "\n", "", -1)
+}
+
+func TestStdlibCompat(t *testing.T) {
+	rootErr := BadParameter("root error")
+
+	var err error = rootErr
+	for i := 0; i < 10; i++ {
+		err = Wrap(err)
+	}
+	for i := 0; i < 10; i++ {
+		err = WrapWithMessage(err, "wrap message %d", i)
+	}
+
+	if !errors.Is(err, rootErr) {
+		t.Error("trace.Is(err, rootErr): got false, want true")
+	}
+	otherErr := CompareFailed("other error")
+	if errors.Is(err, otherErr) {
+		t.Error("trace.Is(err, otherErr): got true, want false")
+	}
+
+	var bpErr *BadParameterError
+	if !errors.As(err, &bpErr) {
+		t.Error("trace.As(err, BadParameterEror): got false, want true")
+	}
+	var cpErr *ConnectionProblemError
+	if errors.As(err, &cpErr) {
+		t.Error("trace.As(err, ConnectivityProblemError): got true, want false")
+	}
+
+	expectedErr := errors.New("wrapped error message")
+	err = &ConnectionProblemError{Err: expectedErr, Message: "error message"}
+	wrappedErr := errors.Unwrap(err)
+	if wrappedErr == nil {
+		t.Errorf("trace.Unwrap(err): got nil, want %v", expectedErr)
+	}
+	wrappedErrorMessage := wrappedErr.Error()
+	if wrappedErrorMessage != expectedErr.Error() {
+		t.Errorf("got %q, want %q", wrappedErrorMessage, expectedErr.Error())
+	}
 }
