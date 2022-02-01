@@ -29,7 +29,6 @@ import (
 )
 
 func Test_Is(t *testing.T) {
-
 	type testError struct {
 		err  error
 		name string
@@ -38,7 +37,7 @@ func Test_Is(t *testing.T) {
 	cases := map[error][]testError{
 		&NotFoundError{}: {
 			{
-				err:  NotFound("test"),
+				err:  NotFound(""),
 				name: "NotFound",
 			}, {
 				err:  os.ErrNotExist,
@@ -47,61 +46,61 @@ func Test_Is(t *testing.T) {
 		},
 		&BadParameterError{}: {
 			{
-				err:  BadParameter("test"),
+				err:  BadParameter(""),
 				name: "BadParameter",
 			},
 		},
 		&RetryError{}: {
 			{
-				err:  Retry(io.EOF, "test"),
+				err:  Retry(nil, ""),
 				name: "Retry",
 			},
 		},
 		&OAuth2Error{}: {
 			{
-				err:  OAuth2("test", "test", url.Values{}),
+				err:  OAuth2("", "", url.Values{}),
 				name: "OAuth2",
 			},
 		},
 		&TrustError{}: {
 			{
-				err:  Trust(io.EOF, "test"),
+				err:  Trust(nil, ""),
 				name: "Trust",
 			},
 		},
 		&LimitExceededError{}: {
 			{
-				err:  LimitExceeded("test"),
+				err:  LimitExceeded(""),
 				name: "LimitExceeded",
 			},
 		},
 		&ConnectionProblemError{}: {
 			{
-				err:  ConnectionProblem(io.EOF, "test"),
+				err:  ConnectionProblem(nil, ""),
 				name: "ConnectionProblem",
 			},
 		},
 		&AccessDeniedError{}: {
 			{
-				err:  AccessDenied("test"),
+				err:  AccessDenied(""),
 				name: "AccessDenied",
 			},
 		},
 		&CompareFailedError{}: {
 			{
-				err:  CompareFailed("test"),
+				err:  CompareFailed(""),
 				name: "CompareFailed",
 			},
 		},
 		&NotImplementedError{}: {
 			{
-				err:  NotImplemented("test"),
+				err:  NotImplemented(""),
 				name: "NotImplemented",
 			},
 		},
 		&AlreadyExistsError{}: {
 			{
-				err:  AlreadyExists("test"),
+				err:  AlreadyExists(""),
 				name: "AlreadyExists",
 			},
 		},
@@ -163,4 +162,216 @@ func Test_Is(t *testing.T) {
 		})
 	}
 
+}
+
+func TestNotFoundError_Is(t *testing.T) {
+	errs := []error{
+		NotFound("one"),
+		NotFound("two"),
+	}
+
+	for i := range errs {
+		for j := range errs {
+			if i == j {
+				require.ErrorIs(t, errs[i], errs[j])
+			} else {
+				require.NotErrorIs(t, errs[i], errs[j])
+				require.NotErrorIs(t, errs[j], errs[i])
+			}
+		}
+		require.ErrorIs(t, errs[i], os.ErrNotExist)
+		require.NotErrorIs(t, os.ErrNotExist, errs[i])
+	}
+}
+
+func TestAlreadyExistsError_Is(t *testing.T) {
+	errs := []error{
+		AlreadyExists("one"),
+		AlreadyExists("two"),
+	}
+
+	for i := range errs {
+		for j := range errs {
+			if i == j {
+				require.ErrorIs(t, errs[i], errs[j])
+			} else {
+				require.NotErrorIs(t, errs[i], errs[j])
+				require.NotErrorIs(t, errs[j], errs[i])
+			}
+		}
+	}
+}
+
+func TestBadParameterError_Is(t *testing.T) {
+	errs := []error{
+		BadParameter("one"),
+		BadParameter("two"),
+	}
+
+	for i := range errs {
+		for j := range errs {
+			if i == j {
+				require.ErrorIs(t, errs[i], errs[j])
+			} else {
+				require.NotErrorIs(t, errs[i], errs[j])
+				require.NotErrorIs(t, errs[j], errs[i])
+			}
+		}
+	}
+}
+
+func TestIsNotImplementedError_Is(t *testing.T) {
+	errs := []error{
+		NotImplemented("one"),
+		NotImplemented("two"),
+	}
+
+	for i := range errs {
+		for j := range errs {
+			if i == j {
+				require.ErrorIs(t, errs[i], errs[j])
+			} else {
+				require.NotErrorIs(t, errs[i], errs[j])
+				require.NotErrorIs(t, errs[j], errs[i])
+			}
+		}
+	}
+}
+
+func TestCompareFailedError_Is(t *testing.T) {
+	errs := []error{
+		CompareFailed("one"),
+		CompareFailed("two"),
+	}
+
+	for i := range errs {
+		for j := range errs {
+			if i == j {
+				require.ErrorIs(t, errs[i], errs[j])
+			} else {
+				require.NotErrorIs(t, errs[i], errs[j])
+				require.NotErrorIs(t, errs[j], errs[i])
+			}
+		}
+	}
+}
+
+func TestAccessDeniedError_Is(t *testing.T) {
+	errs := []error{
+		AccessDenied("one"),
+		AccessDenied("two"),
+	}
+
+	for i := range errs {
+		for j := range errs {
+			if i == j {
+				require.ErrorIs(t, errs[i], errs[j])
+			} else {
+				require.NotErrorIs(t, errs[i], errs[j])
+				require.NotErrorIs(t, errs[j], errs[i])
+			}
+		}
+	}
+}
+
+func TestConnectionProblemError_Is(t *testing.T) {
+	errs := []error{
+		ConnectionProblem(io.EOF, "one"),
+		ConnectionProblem(os.ErrNotExist, "one"),
+		ConnectionProblem(io.EOF, "two"),
+		ConnectionProblem(os.ErrNotExist, "two"),
+	}
+
+	for i := range errs {
+		for j := range errs {
+			if i == j {
+				require.ErrorIs(t, errs[i], errs[j])
+			} else {
+				require.NotErrorIs(t, errs[i], errs[j])
+				require.NotErrorIs(t, errs[j], errs[i])
+			}
+		}
+	}
+}
+
+func TestLimitExceededError_Is(t *testing.T) {
+	errs := []error{
+		LimitExceeded("one"),
+		LimitExceeded("two"),
+	}
+
+	for i := range errs {
+		for j := range errs {
+			if i == j {
+				require.ErrorIs(t, errs[i], errs[j])
+			} else {
+				require.NotErrorIs(t, errs[i], errs[j])
+				require.NotErrorIs(t, errs[j], errs[i])
+			}
+		}
+	}
+}
+
+func TestTrustError_Is(t *testing.T) {
+	errs := []error{
+		Trust(io.EOF, "one"),
+		Trust(os.ErrNotExist, "one"),
+		Trust(io.EOF, "two"),
+		Trust(os.ErrNotExist, "two"),
+	}
+
+	for i := range errs {
+		for j := range errs {
+			if i == j {
+				require.ErrorIs(t, errs[i], errs[j])
+			} else {
+				require.NotErrorIs(t, errs[i], errs[j])
+				require.NotErrorIs(t, errs[j], errs[i])
+			}
+		}
+	}
+}
+
+func TestOauth2Error_Is(t *testing.T) {
+	errs := []error{
+		OAuth2("a", "one", nil),
+		OAuth2("b", "one", url.Values{}),
+		OAuth2("c", "one", url.Values{"test": []string{"test"}}),
+		OAuth2("d", "one", url.Values{"test": []string{"error"}}),
+		OAuth2("d", "one", url.Values{"test": []string{"test", "test"}}),
+		OAuth2("a", "two", nil),
+		OAuth2("b", "two", url.Values{}),
+		OAuth2("c", "two", url.Values{"test": []string{"test"}}),
+	}
+
+	for i := range errs {
+		for j := range errs {
+			if i == j {
+				require.ErrorIs(t, errs[i], errs[j])
+			} else {
+				require.NotErrorIs(t, errs[i], errs[j])
+				require.NotErrorIs(t, errs[j], errs[i])
+			}
+		}
+	}
+}
+
+func TestRetryError_Is(t *testing.T) {
+	errs := []error{
+		Retry(io.EOF, "one"),
+		Retry(os.ErrNotExist, "one"),
+		Retry(io.EOF, "two"),
+		Retry(os.ErrNotExist, "two"),
+	}
+
+	for i := range errs {
+		for j := range errs {
+			if i == j {
+				require.ErrorIs(t, errs[i], errs[j])
+			} else {
+				require.NotErrorIs(t, errs[i], errs[j])
+				require.NotErrorIs(t, errs[j], errs[i])
+			}
+		}
+	}
 }
