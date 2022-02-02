@@ -134,6 +134,8 @@ func Test_Is(t *testing.T) {
 		},
 	}
 
+	require.ErrorIs(t, &CompareFailedError{}, CompareFailed(""))
+
 	// for each target error in the case check if it Is
 	for k := range cases {
 		t.Run(fmt.Sprintf("%T", k), func(t *testing.T) {
@@ -168,12 +170,15 @@ func TestNotFoundError_Is(t *testing.T) {
 	errs := []error{
 		NotFound("one"),
 		NotFound("two"),
+		Wrap(NotFound("three")),
 	}
 
 	for i := range errs {
 		for j := range errs {
 			if i == j {
 				require.ErrorIs(t, errs[i], errs[j])
+				require.ErrorIs(t, Wrap(errs[i]), errs[j])
+				require.ErrorIs(t, Wrap(errs[i]), Wrap(errs[j]))
 			} else {
 				require.NotErrorIs(t, errs[i], errs[j])
 				require.NotErrorIs(t, errs[j], errs[i])
@@ -194,6 +199,8 @@ func TestAlreadyExistsError_Is(t *testing.T) {
 		for j := range errs {
 			if i == j {
 				require.ErrorIs(t, errs[i], errs[j])
+				require.ErrorIs(t, Wrap(errs[i]), errs[j])
+				require.ErrorIs(t, Wrap(errs[i]), Wrap(errs[j]))
 			} else {
 				require.NotErrorIs(t, errs[i], errs[j])
 				require.NotErrorIs(t, errs[j], errs[i])
@@ -212,6 +219,8 @@ func TestBadParameterError_Is(t *testing.T) {
 		for j := range errs {
 			if i == j {
 				require.ErrorIs(t, errs[i], errs[j])
+				require.ErrorIs(t, Wrap(errs[i]), errs[j])
+				require.ErrorIs(t, Wrap(errs[i]), Wrap(errs[j]))
 			} else {
 				require.NotErrorIs(t, errs[i], errs[j])
 				require.NotErrorIs(t, errs[j], errs[i])
@@ -230,6 +239,8 @@ func TestIsNotImplementedError_Is(t *testing.T) {
 		for j := range errs {
 			if i == j {
 				require.ErrorIs(t, errs[i], errs[j])
+				require.ErrorIs(t, Wrap(errs[i]), errs[j])
+				require.ErrorIs(t, Wrap(errs[i]), Wrap(errs[j]))
 			} else {
 				require.NotErrorIs(t, errs[i], errs[j])
 				require.NotErrorIs(t, errs[j], errs[i])
@@ -248,6 +259,9 @@ func TestCompareFailedError_Is(t *testing.T) {
 		for j := range errs {
 			if i == j {
 				require.ErrorIs(t, errs[i], errs[j])
+				require.ErrorIs(t, errs[i], Wrap(errs[j]))
+				require.ErrorIs(t, Wrap(errs[i]), errs[j])
+				require.ErrorIs(t, Wrap(errs[i]), Wrap(errs[j]))
 			} else {
 				require.NotErrorIs(t, errs[i], errs[j])
 				require.NotErrorIs(t, errs[j], errs[i])
@@ -266,6 +280,8 @@ func TestAccessDeniedError_Is(t *testing.T) {
 		for j := range errs {
 			if i == j {
 				require.ErrorIs(t, errs[i], errs[j])
+				require.ErrorIs(t, Wrap(errs[i]), errs[j])
+				require.ErrorIs(t, Wrap(errs[i]), Wrap(errs[j]))
 			} else {
 				require.NotErrorIs(t, errs[i], errs[j])
 				require.NotErrorIs(t, errs[j], errs[i])
@@ -286,6 +302,8 @@ func TestConnectionProblemError_Is(t *testing.T) {
 		for j := range errs {
 			if i == j {
 				require.ErrorIs(t, errs[i], errs[j])
+				require.ErrorIs(t, Wrap(errs[i]), errs[j])
+				require.ErrorIs(t, Wrap(errs[i]), Wrap(errs[j]))
 			} else {
 				require.NotErrorIs(t, errs[i], errs[j])
 				require.NotErrorIs(t, errs[j], errs[i])
@@ -304,6 +322,8 @@ func TestLimitExceededError_Is(t *testing.T) {
 		for j := range errs {
 			if i == j {
 				require.ErrorIs(t, errs[i], errs[j])
+				require.ErrorIs(t, Wrap(errs[i]), errs[j])
+				require.ErrorIs(t, Wrap(errs[i]), Wrap(errs[j]))
 			} else {
 				require.NotErrorIs(t, errs[i], errs[j])
 				require.NotErrorIs(t, errs[j], errs[i])
@@ -324,6 +344,8 @@ func TestTrustError_Is(t *testing.T) {
 		for j := range errs {
 			if i == j {
 				require.ErrorIs(t, errs[i], errs[j])
+				require.ErrorIs(t, Wrap(errs[i]), errs[j])
+				require.ErrorIs(t, Wrap(errs[i]), Wrap(errs[j]))
 			} else {
 				require.NotErrorIs(t, errs[i], errs[j])
 				require.NotErrorIs(t, errs[j], errs[i])
@@ -348,6 +370,8 @@ func TestOauth2Error_Is(t *testing.T) {
 		for j := range errs {
 			if i == j {
 				require.ErrorIs(t, errs[i], errs[j])
+				require.ErrorIs(t, Wrap(errs[i]), errs[j])
+				require.ErrorIs(t, Wrap(errs[i]), Wrap(errs[j]))
 			} else {
 				require.NotErrorIs(t, errs[i], errs[j])
 				require.NotErrorIs(t, errs[j], errs[i])
@@ -368,6 +392,8 @@ func TestRetryError_Is(t *testing.T) {
 		for j := range errs {
 			if i == j {
 				require.ErrorIs(t, errs[i], errs[j])
+				require.ErrorIs(t, Wrap(errs[i]), errs[j])
+				require.ErrorIs(t, Wrap(errs[i]), Wrap(errs[j]))
 			} else {
 				require.NotErrorIs(t, errs[i], errs[j])
 				require.NotErrorIs(t, errs[j], errs[i])
