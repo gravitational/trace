@@ -144,6 +144,24 @@ func GetFields(err error) map[string]interface{} {
 	return map[string]interface{}{}
 }
 
+func UnwrapProxyField(err error, fieldName string, unmarshalPtr interface{}) bool {
+	if proxyErr, ok := err.(proxyError); ok {
+		if proxyDeepTraceErr, ok := proxyErr.Err.(*TraceErr); ok {
+			if fieldValue, ok := proxyDeepTraceErr.Fields[fieldName]; ok {
+				out, err2 := json.Marshal(fieldValue)
+
+				if err2 != nil {
+					return false
+				}
+
+				return json.Unmarshal(out, unmarshalPtr) == nil
+			}
+		}
+	}
+
+	return false
+}
+
 // WrapWithMessage wraps the original error into Error and adds user message if any
 func WrapWithMessage(err error, message interface{}, args ...interface{}) Error {
 	var trace Error
