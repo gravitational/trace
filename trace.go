@@ -144,6 +144,9 @@ func GetFields(err error) map[string]interface{} {
 	return map[string]interface{}{}
 }
 
+// UnwrapProxyField attempts to find a named field within an error returned from ReadError.
+// If found, the field is reinterpreted through json.Unmarshal call and stored in unmarshalPtr.
+// Returns true on success and false on failure.
 func UnwrapProxyField(err error, fieldName string, unmarshalPtr interface{}) bool {
 	if proxyErr, ok := err.(proxyError); ok {
 		if proxyDeepTraceErr, ok := proxyErr.Err.(*TraceErr); ok {
