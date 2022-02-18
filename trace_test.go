@@ -21,7 +21,6 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"github.com/go-test/deep"
 	"io"
 	"net/http"
 	"os"
@@ -109,6 +108,10 @@ func (s *TraceSuite) TestGetFields() {
 	}
 	err := Wrap(testErr).AddFields(fields)
 	s.Equal(fields, GetFields(err))
+
+	// ensure that you can get fields from a proxyError
+	e := roundtripError(err)
+	s.Equal(fields, GetFields(e))
 }
 
 func (s *TraceSuite) TestWrapNil() {
@@ -704,7 +707,7 @@ func roundtripError(err error) error {
 	return outErr
 }
 
-func TestUnwrapProxyField(t *testing.T) {
+func (s *TraceSuite) TestUnmarshalField() {
 	type args struct {
 		err          error
 		fieldName    string
@@ -760,18 +763,18 @@ func TestUnwrapProxyField(t *testing.T) {
 		}}
 
 	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
+		s.T().Run(tt.name, func(t *testing.T) {
 
-			got := UnwrapProxyField(tt.args.err, tt.args.fieldName, tt.args.unmarshalPtr)
+			got := UnmarshalField(tt.args.err, tt.args.fieldName, tt.args.unmarshalPtr)
 
 			if got != tt.wantReturn {
-				t.Errorf("UnwrapProxyField() = %v, want %v", got, tt.wantReturn)
+				t.Errorf("UnmarshalField() = %v, want %v", got, tt.wantReturn)
 			}
 
 			// only compare values when the field was found
 			if got {
-				if diff := deep.Equal(tt.args.unmarshalPtr, tt.wantPtr); diff != nil {
-					t.Error(diff)
+				if !s.Equal(tt.args.unmarshalPtr, tt.wantPtr) {
+					t.Fail()
 				}
 			}
 		})

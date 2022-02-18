@@ -138,31 +138,48 @@ func GetFields(err error) map[string]interface{} {
 	if err == nil {
 		return map[string]interface{}{}
 	}
+
+	// for proxyError combine top-level and nested fields.
+	if proxy, ok := err.(proxyError); ok {
+		fields := map[string]interface{}{}
+
+		// nested
+		for field, value := range GetFields(proxy.Err) {
+			fields[field] = value
+		}
+
+		// top-level
+		for field, value := range proxy.GetFields() {
+			fields[field] = value
+		}
+
+		return fields
+	}
+
 	if wrap, ok := err.(Error); ok {
 		return wrap.GetFields()
 	}
+
 	return map[string]interface{}{}
 }
 
-// UnwrapProxyField attempts to find a named field within an error returned from ReadError.
+// UnmarshalField attempts to find a given named field.
 // If found, the field is reinterpreted through json.Unmarshal call and stored in unmarshalPtr.
 // Returns true on success and false on failure.
-func UnwrapProxyField(err error, fieldName string, unmarshalPtr interface{}) bool {
-	if proxyErr, ok := err.(proxyError); ok {
-		if proxyDeepTraceErr, ok := proxyErr.Err.(*TraceErr); ok {
-			if fieldValue, ok := proxyDeepTraceErr.Fields[fieldName]; ok {
-				out, err2 := json.Marshal(fieldValue)
+func UnmarshalField(err error, fieldName string, unmarshalPtr interface{}) bool {
+	fields := GetFields(err)
 
-				if err2 != nil {
-					return false
-				}
-
-				return json.Unmarshal(out, unmarshalPtr) == nil
-			}
-		}
+	fieldValue, ok := fields[fieldName]
+	if !ok {
+		return false
 	}
 
-	return false
+	out, marshalErr := json.Marshal(fieldValue)
+	if marshalErr != nil {
+		return false
+	}
+
+	return json.Unmarshal(out, unmarshalPtr) == nil
 }
 
 // WrapWithMessage wraps the original error into Error and adds user message if any
