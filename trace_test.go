@@ -114,6 +114,14 @@ func (s *TraceSuite) TestGetFields() {
 	s.Equal(fields, GetFields(e))
 }
 
+func roundtripError(err error) error {
+	w := newTestWriter()
+	WriteError(w, err)
+
+	outErr := ReadError(w.StatusCode, w.Body)
+	return outErr
+}
+
 func (s *TraceSuite) TestWrapNil() {
 	err1 := Wrap(nil, "message: %v", "extra")
 	s.Nil(err1)
@@ -691,92 +699,5 @@ func TestStdlibCompat(t *testing.T) {
 	wrappedErrorMessage := wrappedErr.Error()
 	if wrappedErrorMessage != expectedErr.Error() {
 		t.Errorf("got %q, want %q", wrappedErrorMessage, expectedErr.Error())
-	}
-}
-
-type TestStruct struct {
-	Txt string `json:"message,omitempty"`
-	Tag int32  `json:"tag"`
-}
-
-func roundtripError(err error) error {
-	w := newTestWriter()
-	WriteError(w, err)
-
-	outErr := ReadError(w.StatusCode, w.Body)
-	return outErr
-}
-
-func (s *TraceSuite) TestUnmarshalField() {
-	type args struct {
-		err          error
-		fieldName    string
-		unmarshalPtr interface{}
-	}
-	tests := []struct {
-		name       string
-		args       args
-		wantReturn bool
-		wantPtr    interface{}
-	}{
-		{
-			name:       "no error, no field",
-			args:       args{err: nil, fieldName: "", unmarshalPtr: nil},
-			wantReturn: false,
-			wantPtr:    nil,
-		},
-		{
-			name:       "error, no field",
-			args:       args{err: fmt.Errorf("bzz"), fieldName: "debug-info", unmarshalPtr: &TestStruct{}},
-			wantReturn: false,
-			wantPtr:    nil,
-		},
-		{
-			name:       "wrapped error, no field",
-			args:       args{err: Wrap(fmt.Errorf("bzz")), fieldName: "debug-info", unmarshalPtr: &TestStruct{}},
-			wantReturn: false,
-			wantPtr:    nil,
-		},
-		{
-			name: "wrapped error, has field",
-			args: args{err: wrapProxy(Wrap(fmt.Errorf("bzz")).AddField("debug-info", TestStruct{
-				Txt: "txt-123",
-				Tag: 123,
-			})), fieldName: "debug-info", unmarshalPtr: &TestStruct{}},
-			wantReturn: true,
-			wantPtr: &TestStruct{
-				Txt: "txt-123",
-				Tag: 123,
-			},
-		},
-		{
-			name: "ReadError, has field",
-			args: args{err: roundtripError(Wrap(fmt.Errorf("bzz")).AddField("debug-info", TestStruct{
-				Txt: "txt-321",
-				Tag: 321,
-			})), fieldName: "debug-info", unmarshalPtr: &TestStruct{}},
-			wantReturn: true,
-			wantPtr: &TestStruct{
-				Txt: "txt-321",
-				Tag: 321,
-			},
-		}}
-
-	for _, tt := range tests {
-		s.T().Run(tt.name, func(t *testing.T) {
-
-			got := UnmarshalField(tt.args.err, tt.args.fieldName, tt.args.unmarshalPtr)
-
-			if got != tt.wantReturn {
-				t.Errorf("UnmarshalField() = %v, want %v", got, tt.wantReturn)
-			}
-
-			// only compare values when the field was found
-			if got {
-				if !s.Equal(tt.args.unmarshalPtr, tt.wantPtr) {
-					t.Fail()
-				}
-			}
-		})
 	}
 }

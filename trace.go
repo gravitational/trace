@@ -163,25 +163,6 @@ func GetFields(err error) map[string]interface{} {
 	return map[string]interface{}{}
 }
 
-// UnmarshalField attempts to find a given named field.
-// If found, the field is reinterpreted through json.Unmarshal call and stored in unmarshalPtr.
-// Returns true on success and false on failure.
-func UnmarshalField(err error, fieldName string, unmarshalPtr interface{}) bool {
-	fields := GetFields(err)
-
-	fieldValue, ok := fields[fieldName]
-	if !ok {
-		return false
-	}
-
-	out, marshalErr := json.Marshal(fieldValue)
-	if marshalErr != nil {
-		return false
-	}
-
-	return json.Unmarshal(out, unmarshalPtr) == nil
-}
-
 // WrapWithMessage wraps the original error into Error and adds user message if any
 func WrapWithMessage(err error, message interface{}, args ...interface{}) Error {
 	var trace Error
