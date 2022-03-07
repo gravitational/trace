@@ -108,6 +108,18 @@ func (s *TraceSuite) TestGetFields() {
 	}
 	err := Wrap(testErr).AddFields(fields)
 	s.Equal(fields, GetFields(err))
+
+	// ensure that you can get fields from a proxyError
+	e := roundtripError(err)
+	s.Equal(fields, GetFields(e))
+}
+
+func roundtripError(err error) error {
+	w := newTestWriter()
+	WriteError(w, err)
+
+	outErr := ReadError(w.StatusCode, w.Body)
+	return outErr
 }
 
 func (s *TraceSuite) TestWrapNil() {

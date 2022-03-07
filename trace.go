@@ -138,9 +138,28 @@ func GetFields(err error) map[string]interface{} {
 	if err == nil {
 		return map[string]interface{}{}
 	}
+
+	// for proxyError combine top-level and nested fields.
+	if proxy, ok := err.(proxyError); ok {
+		fields := map[string]interface{}{}
+
+		// nested
+		for field, value := range GetFields(proxy.Err) {
+			fields[field] = value
+		}
+
+		// top-level
+		for field, value := range proxy.GetFields() {
+			fields[field] = value
+		}
+
+		return fields
+	}
+
 	if wrap, ok := err.(Error); ok {
 		return wrap.GetFields()
 	}
+
 	return map[string]interface{}{}
 }
 
