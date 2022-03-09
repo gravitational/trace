@@ -41,6 +41,8 @@ package trail
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"io"
 
 	"github.com/gravitational/trace"
 	"github.com/gravitational/trace/internal"
@@ -82,37 +84,39 @@ func ToGRPC(err error) error {
 	if err == nil {
 		return nil
 	}
+
+	if errors.Is(err, io.EOF) {
+		return err
+	}
+
 	// If err is already a gRPC error, don't modify it.
 	if _, ok := status.FromError(err); ok {
 		return err
 	}
 
 	userMessage := trace.UserMessage(err)
-	if trace.IsNotFound(err) {
+	err = trace.Unwrap(err)
+	switch err.(type) {
+	case *trace.NotFoundError:
 		return grpc.Errorf(codes.NotFound, userMessage)
-	}
-	if trace.IsAlreadyExists(err) {
+	case *trace.AlreadyExistsError:
 		return grpc.Errorf(codes.AlreadyExists, userMessage)
-	}
-	if trace.IsAccessDenied(err) {
+	case *trace.AccessDeniedError:
 		return grpc.Errorf(codes.PermissionDenied, userMessage)
-	}
-	if trace.IsCompareFailed(err) {
+	case *trace.CompareFailedError:
 		return grpc.Errorf(codes.FailedPrecondition, userMessage)
-	}
-	if trace.IsBadParameter(err) || trace.IsOAuth2(err) {
+	case *trace.BadParameterError,
+		*trace.OAuth2Error:
 		return grpc.Errorf(codes.InvalidArgument, userMessage)
-	}
-	if trace.IsLimitExceeded(err) {
+	case *trace.LimitExceededError:
 		return grpc.Errorf(codes.ResourceExhausted, userMessage)
-	}
-	if trace.IsConnectionProblem(err) {
+	case *trace.ConnectionProblemError:
 		return grpc.Errorf(codes.Unavailable, userMessage)
-	}
-	if trace.IsNotImplemented(err) {
+	case *trace.NotImplementedError:
 		return grpc.Errorf(codes.Unimplemented, userMessage)
+	default:
+		return grpc.Errorf(codes.Unknown, userMessage)
 	}
-	return grpc.Errorf(codes.Unknown, userMessage)
 }
 
 // FromGRPC converts error from GRPC error back to trace.Error
