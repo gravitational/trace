@@ -95,28 +95,31 @@ func ToGRPC(err error) error {
 	}
 
 	userMessage := trace.UserMessage(err)
-	err = trace.Unwrap(err)
-	switch err.(type) {
-	case *trace.NotFoundError:
+	if trace.IsNotFound(err) {
 		return grpc.Errorf(codes.NotFound, userMessage)
-	case *trace.AlreadyExistsError:
-		return grpc.Errorf(codes.AlreadyExists, userMessage)
-	case *trace.AccessDeniedError:
-		return grpc.Errorf(codes.PermissionDenied, userMessage)
-	case *trace.CompareFailedError:
-		return grpc.Errorf(codes.FailedPrecondition, userMessage)
-	case *trace.BadParameterError,
-		*trace.OAuth2Error:
-		return grpc.Errorf(codes.InvalidArgument, userMessage)
-	case *trace.LimitExceededError:
-		return grpc.Errorf(codes.ResourceExhausted, userMessage)
-	case *trace.ConnectionProblemError:
-		return grpc.Errorf(codes.Unavailable, userMessage)
-	case *trace.NotImplementedError:
-		return grpc.Errorf(codes.Unimplemented, userMessage)
-	default:
-		return grpc.Errorf(codes.Unknown, userMessage)
 	}
+	if trace.IsAlreadyExists(err) {
+		return grpc.Errorf(codes.AlreadyExists, userMessage)
+	}
+	if trace.IsAccessDenied(err) {
+		return grpc.Errorf(codes.PermissionDenied, userMessage)
+	}
+	if trace.IsCompareFailed(err) {
+		return grpc.Errorf(codes.FailedPrecondition, userMessage)
+	}
+	if trace.IsBadParameter(err) || trace.IsOAuth2(err) {
+		return grpc.Errorf(codes.InvalidArgument, userMessage)
+	}
+	if trace.IsLimitExceeded(err) {
+		return grpc.Errorf(codes.ResourceExhausted, userMessage)
+	}
+	if trace.IsConnectionProblem(err) {
+		return grpc.Errorf(codes.Unavailable, userMessage)
+	}
+	if trace.IsNotImplemented(err) {
+		return grpc.Errorf(codes.Unimplemented, userMessage)
+	}
+	return grpc.Errorf(codes.Unknown, userMessage)
 }
 
 // FromGRPC converts error from GRPC error back to trace.Error
