@@ -17,6 +17,7 @@ limitations under the License.
 package trail
 
 import (
+	"errors"
 	"io"
 	"strings"
 	"testing"
@@ -46,6 +47,12 @@ func (s *TrailSuite) TestConversion() {
 		Message   string
 		Predicate func(error) bool
 	}{
+		{
+			Error: io.EOF,
+			Predicate: func(err error) bool {
+				return errors.Is(err, io.EOF)
+			},
+		},
 		{
 			Error:     trace.AccessDenied("access denied"),
 			Predicate: trace.IsAccessDenied,
@@ -82,9 +89,9 @@ func (s *TrailSuite) TestConversion() {
 
 	for i, tc := range testCases {
 		grpcError := ToGRPC(tc.Error)
-		s.Equal(tc.Error.Error(), grpc.ErrorDesc(grpcError), "test case #v", i+1)
+		s.Equal(tc.Error.Error(), grpc.ErrorDesc(grpcError), "test case %v", i+1)
 		out := FromGRPC(grpcError)
-		s.True(tc.Predicate(out), "test case #v", i+1)
+		s.True(tc.Predicate(out), "test case %v", i+1)
 		s.Regexp(".*trail_test.go.*", line(trace.DebugReport(out)))
 		s.NotRegexp(".*trail.go.*", line(trace.DebugReport(out)))
 	}

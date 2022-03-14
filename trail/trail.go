@@ -41,6 +41,8 @@ package trail
 import (
 	"encoding/base64"
 	"encoding/json"
+	"errors"
+	"io"
 
 	"github.com/gravitational/trace"
 	"github.com/gravitational/trace/internal"
@@ -82,6 +84,11 @@ func ToGRPC(err error) error {
 	if err == nil {
 		return nil
 	}
+
+	if errors.Is(err, io.EOF) {
+		return err
+	}
+
 	// If err is already a gRPC error, don't modify it.
 	if _, ok := status.FromError(err); ok {
 		return err
