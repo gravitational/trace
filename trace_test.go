@@ -702,12 +702,13 @@ func TestStdlibCompat(t *testing.T) {
 	}
 }
 
-// TestStdLibCompat_Aggregate runs through a scenario which ensures a
-// that Aggregate behaves well with errors.Is/errors.As in cases with trace
+// TestStdLibCompat_Aggregate runs through a scenario which ensures that
+// Aggregate behaves well with errors.Is/errors.As in cases with trace
 // wrapped errors and stdlib errors
 func TestStdlibCompat_Aggregate(t *testing.T) {
 	randomErr := fmt.Errorf("random")
-	badParamErr := BadParameter("bad param")
+	bpMsg := "bad param"
+	badParamErr := BadParameter(bpMsg)
 	fooErr := fmt.Errorf("foo")
 
 	agg := Wrap(NewAggregate(Wrap(badParamErr), fooErr))
@@ -720,5 +721,17 @@ func TestStdlibCompat_Aggregate(t *testing.T) {
 	}
 	if errors.Is(agg, randomErr) {
 		t.Error("trace.Is(agg, randomErr): got true, want false")
+	}
+
+	var badParamErrTarget *BadParameterError
+	if !errors.As(agg, &badParamErrTarget) {
+		t.Error("trace.As(agg, badParamErrTarget): got true, want false")
+	} else {
+		if badParamErrTarget.Message != bpMsg {
+			t.Errorf(
+				"badParamErrTarget: got '%s', want '%s'",
+				badParamErrTarget.Message, bpMsg,
+			)
+		}
 	}
 }

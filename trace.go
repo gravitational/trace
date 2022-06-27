@@ -454,7 +454,7 @@ func (r aggregate) Error() string {
 	return output
 }
 
-// Unwrap implements errors.Unwrap in a somewhat unusual way to support
+// Unwrap implements `errors.Unwrap` in a somewhat unusual way to support
 // `errors.Is` and `errors.As`.
 //
 // One might expect Unwrap to return the error at the head of the slice, but,
@@ -462,6 +462,9 @@ func (r aggregate) Error() string {
 // `aggregate.Is` re-invoking `errors.Is` on the head of the slice essentially
 // allows for the original `errors.Is` to navigate the tree of error chains
 // created by `aggregate`.
+//
+// Reading the implementation for `errors.Is` and `errors.As` should provide
+// some further explanation.
 func (r aggregate) Unwrap() error {
 	if len(r) == 1 {
 		return nil
@@ -470,10 +473,16 @@ func (r aggregate) Unwrap() error {
 	return r[1:]
 }
 
-// Is implements the errors.Is interface, by re-invoking errors.Is on the
-// error at the head of the slice.
+// Is implements the errors.Is interface by re-invoking errors.Is on the error
+// at the head of the slice.
 func (r aggregate) Is(t error) bool {
 	return errors.Is(r[0], t)
+}
+
+// As implements the errors.As interface by re-invoking errors.As on the error
+// at the head of the slice.
+func (r aggregate) As(t interface{}) bool {
+	return errors.As(r[0], t)
 }
 
 // Errors obtains the list of errors this aggregate combines
