@@ -7,17 +7,7 @@ on:
     branches:
       - master
 
-permissions:
-    actions: none
-    pull-requests: none
-    checks: none
-    contents: none
-    deployments: none
-    issues: none
-    packages: none
-    repository-projects: none
-    security-events: none
-    statuses: none
+permissions: {}
 
 jobs:
   go-test:
