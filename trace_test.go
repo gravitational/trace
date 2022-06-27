@@ -28,6 +28,7 @@ import (
 	"testing"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -713,25 +714,11 @@ func TestStdlibCompat_Aggregate(t *testing.T) {
 
 	agg := Wrap(NewAggregate(Wrap(badParamErr), fooErr))
 
-	if !errors.Is(agg, badParamErr) {
-		t.Error("trace.Is(agg, badParamErr): got false, want true")
-	}
-	if !errors.Is(agg, fooErr) {
-		t.Error("trace.Is(agg, fooErr): got false, want true")
-	}
-	if errors.Is(agg, randomErr) {
-		t.Error("trace.Is(agg, randomErr): got true, want false")
-	}
+	require.ErrorIs(t, agg, badParamErr)
+	require.ErrorIs(t, agg, fooErr)
+	require.NotErrorIs(t, agg, randomErr)
 
 	var badParamErrTarget *BadParameterError
-	if !errors.As(agg, &badParamErrTarget) {
-		t.Error("trace.As(agg, badParamErrTarget): got true, want false")
-	} else {
-		if badParamErrTarget.Message != bpMsg {
-			t.Errorf(
-				"badParamErrTarget: got '%s', want '%s'",
-				badParamErrTarget.Message, bpMsg,
-			)
-		}
-	}
+	require.ErrorAs(t, agg, &badParamErrTarget)
+	require.Equal(t, bpMsg, badParamErrTarget.Message)
 }
