@@ -21,6 +21,7 @@ package trace
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"strings"
@@ -453,6 +454,28 @@ func (r aggregate) Error() string {
 	return output
 }
 
+// Unwrap implements errors.Unwrap in a somewhat unusual way to support
+// `errors.Is` and `errors.As`.
+//
+// One might expect Unwrap to return the error at the head of the slice, but,
+// instead we return the slice excluding the head. This, in combination with
+// `aggregate.Is` re-invoking `errors.Is` on the head of the slice essentially
+// allows for the original `errors.Is` to navigate the tree of error chains
+// created by `aggregate`.
+func (r aggregate) Unwrap() error {
+	if len(r) == 1 {
+		return nil
+	}
+
+	return r[1:]
+}
+
+// Is implements the errors.Is interface, by re-invoking errors.Is on the
+// error at the head of the slice.
+func (r aggregate) Is(t error) bool {
+	return errors.Is(r[0], t)
+}
+
 // Errors obtains the list of errors this aggregate combines
 func (r aggregate) Errors() []error {
 	return []error(r)
@@ -523,8 +546,9 @@ type errorReport struct {
 	Caught string
 }
 
-var reportTemplate = template.Must(template.New("debugReport").Parse(reportTemplateText))
-var reportTemplateText = `
+var (
+	reportTemplate     = template.Must(template.New("debugReport").Parse(reportTemplateText))
+	reportTemplateText = `
 ERROR REPORT:
 Original Error: {{.OrigErrType}} {{.OrigErrMessage}}
 {{if .Fields}}Fields:
@@ -535,3 +559,4 @@ Original Error: {{.OrigErrType}} {{.OrigErrMessage}}
 {{.Caught}}
 User Message: {{.UserMessage}}
 {{else}}User Message: {{.UserMessage}}{{end}}`
+)

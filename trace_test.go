@@ -459,7 +459,7 @@ func (s *TraceSuite) TestConvert() {
 	s.True(IsConnectionProblem(err), "failed to detect network error")
 
 	dir := s.T().TempDir()
-	err = os.Mkdir(dir, 0770)
+	err = os.Mkdir(dir, 0o770)
 	err = ConvertSystemError(err)
 	s.True(IsAlreadyExists(err), "expected AlreadyExists error, got %T", err)
 }
@@ -592,7 +592,7 @@ func (s *TraceSuite) TestAggregateFromChannelCancel() {
 }
 
 func (s *TraceSuite) TestCompositeErrorsCanProperlyUnwrap() {
-	var testCases = []struct {
+	testCases := []struct {
 		err            error
 		message        string
 		wrappedMessage string
@@ -699,5 +699,26 @@ func TestStdlibCompat(t *testing.T) {
 	wrappedErrorMessage := wrappedErr.Error()
 	if wrappedErrorMessage != expectedErr.Error() {
 		t.Errorf("got %q, want %q", wrappedErrorMessage, expectedErr.Error())
+	}
+}
+
+// TestStdLibCompat_Aggregate runs through a scenario which ensures a
+// that Aggregate behaves well with errors.Is/errors.As in cases with trace
+// wrapped errors and stdlib errors
+func TestStdlibCompat_Aggregate(t *testing.T) {
+	randomErr := fmt.Errorf("random")
+	badParamErr := BadParameter("bad param")
+	fooErr := fmt.Errorf("foo")
+
+	agg := Wrap(NewAggregate(Wrap(badParamErr), fooErr))
+
+	if !errors.Is(agg, badParamErr) {
+		t.Error("trace.Is(agg, badParamErr): got false, want true")
+	}
+	if !errors.Is(agg, fooErr) {
+		t.Error("trace.Is(agg, fooErr): got false, want true")
+	}
+	if errors.Is(agg, randomErr) {
+		t.Error("trace.Is(agg, randomErr): got true, want false")
 	}
 }
