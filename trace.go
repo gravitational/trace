@@ -21,6 +21,7 @@ package trace
 import (
 	"bytes"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"html/template"
 	"strings"
@@ -453,6 +454,28 @@ func (r aggregate) Error() string {
 	return output
 }
 
+// Is implements the `Is` interface, by iterating through each error in the
+// aggregate and invoking `errors.Is`.
+func (r aggregate) Is(t error) bool {
+	for _, err := range r {
+		if errors.Is(err, t) {
+			return true
+		}
+	}
+	return false
+}
+
+// As implements the `As` interface, by iterating through each error in the
+// aggregate and invoking `errors.As`.
+func (r aggregate) As(t interface{}) bool {
+	for _, err := range r {
+		if errors.As(err, t) {
+			return true
+		}
+	}
+	return false
+}
+
 // Errors obtains the list of errors this aggregate combines
 func (r aggregate) Errors() []error {
 	return []error(r)
@@ -523,8 +546,9 @@ type errorReport struct {
 	Caught string
 }
 
-var reportTemplate = template.Must(template.New("debugReport").Parse(reportTemplateText))
-var reportTemplateText = `
+var (
+	reportTemplate     = template.Must(template.New("debugReport").Parse(reportTemplateText))
+	reportTemplateText = `
 ERROR REPORT:
 Original Error: {{.OrigErrType}} {{.OrigErrMessage}}
 {{if .Fields}}Fields:
@@ -535,3 +559,4 @@ Original Error: {{.OrigErrType}} {{.OrigErrMessage}}
 {{.Caught}}
 User Message: {{.UserMessage}}
 {{else}}User Message: {{.UserMessage}}{{end}}`
+)

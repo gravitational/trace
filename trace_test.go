@@ -28,6 +28,7 @@ import (
 	"testing"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/require"
 	"github.com/stretchr/testify/suite"
 )
 
@@ -459,7 +460,7 @@ func (s *TraceSuite) TestConvert() {
 	s.True(IsConnectionProblem(err), "failed to detect network error")
 
 	dir := s.T().TempDir()
-	err = os.Mkdir(dir, 0770)
+	err = os.Mkdir(dir, 0o770)
 	err = ConvertSystemError(err)
 	s.True(IsAlreadyExists(err), "expected AlreadyExists error, got %T", err)
 }
@@ -592,7 +593,7 @@ func (s *TraceSuite) TestAggregateFromChannelCancel() {
 }
 
 func (s *TraceSuite) TestCompositeErrorsCanProperlyUnwrap() {
-	var testCases = []struct {
+	testCases := []struct {
 		err            error
 		message        string
 		wrappedMessage string
@@ -700,4 +701,24 @@ func TestStdlibCompat(t *testing.T) {
 	if wrappedErrorMessage != expectedErr.Error() {
 		t.Errorf("got %q, want %q", wrappedErrorMessage, expectedErr.Error())
 	}
+}
+
+// TestStdLibCompat_Aggregate runs through a scenario which ensures that
+// Aggregate behaves well with errors.Is/errors.As in cases with trace
+// wrapped errors and stdlib errors
+func TestStdlibCompat_Aggregate(t *testing.T) {
+	randomErr := fmt.Errorf("random")
+	bpMsg := "bad param"
+	badParamErr := BadParameter(bpMsg)
+	fooErr := fmt.Errorf("foo")
+
+	agg := Wrap(NewAggregate(Wrap(badParamErr), fooErr))
+
+	require.ErrorIs(t, agg, badParamErr)
+	require.ErrorIs(t, agg, fooErr)
+	require.NotErrorIs(t, agg, randomErr)
+
+	var badParamErrTarget *BadParameterError
+	require.ErrorAs(t, agg, &badParamErrTarget)
+	require.Equal(t, bpMsg, badParamErrTarget.Message)
 }
