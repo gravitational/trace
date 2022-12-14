@@ -97,7 +97,7 @@ func (s *TraceSuite) TestUserMessageWithFields() {
 	err := Wrap(testErr, "user message")
 	s.Equal("user message\tdescription", line(UserMessageWithFields(err)))
 
-	_ = err.AddField("test_key", "test_value")
+	err = err.AddField("test_key", "test_value")
 	s.Equal("test_key=\"test_value\" user message\tdescription", line(UserMessageWithFields(err)))
 }
 
