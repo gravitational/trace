@@ -172,8 +172,7 @@ func WrapWithMessage(err error, message interface{}, args ...interface{}) Error 
 	} else {
 		trace = newTrace(err, 2)
 	}
-	trace.AddUserMessage(message, args...)
-	return trace
+	return trace.AddUserMessage(message, args...)
 }
 
 // Errorf is similar to fmt.Errorf except that it captures
@@ -254,31 +253,59 @@ type RawTrace struct {
 	Fields map[string]interface{} `json:"fields,omitempty"`
 }
 
+func (e *TraceErr) clone() *TraceErr {
+	if e == nil {
+		return nil
+	}
+
+	tr := &TraceErr{
+		Err:     e.Err,
+		Traces:  e.Traces,
+		Message: e.Message,
+	}
+
+	if e.Messages != nil {
+		tr.Messages = append([]string{}, e.Messages...)
+	}
+
+	if e.Fields != nil {
+		tr.Fields = make(map[string]interface{}, len(e.Fields))
+		for k, v := range e.Fields {
+			tr.Fields[k] = v
+		}
+	}
+
+	return tr
+}
+
 // AddUserMessage adds user-friendly message describing the error nature
 func (e *TraceErr) AddUserMessage(formatArg interface{}, rest ...interface{}) *TraceErr {
 	newMessage := fmt.Sprintf(fmt.Sprintf("%v", formatArg), rest...)
-	e.Messages = append(e.Messages, newMessage)
-	return e
+	errClone := e.clone()
+	errClone.Messages = append(errClone.Messages, newMessage)
+	return errClone
 }
 
 // AddFields adds the given map of fields to the error being reported
 func (e *TraceErr) AddFields(fields map[string]interface{}) *TraceErr {
-	if e.Fields == nil {
-		e.Fields = make(map[string]interface{}, len(fields))
+	errClone := e.clone()
+	if errClone.Fields == nil {
+		errClone.Fields = make(map[string]interface{}, len(fields))
 	}
 	for k, v := range fields {
-		e.Fields[k] = v
+		errClone.Fields[k] = v
 	}
-	return e
+	return errClone
 }
 
 // AddField adds a single field to the error wrapper as context for the error
 func (e *TraceErr) AddField(k string, v interface{}) *TraceErr {
-	if e.Fields == nil {
-		e.Fields = make(map[string]interface{}, 1)
+	errClone := e.clone()
+	if errClone.Fields == nil {
+		errClone.Fields = make(map[string]interface{}, 1)
 	}
-	e.Fields[k] = v
-	return e
+	errClone.Fields[k] = v
+	return errClone
 }
 
 // UserMessage returns user-friendly error message

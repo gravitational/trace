@@ -25,6 +25,7 @@ import (
 	"net/http"
 	"os"
 	"strings"
+	"sync"
 	"testing"
 
 	log "github.com/sirupsen/logrus"
@@ -96,7 +97,7 @@ func (s *TraceSuite) TestUserMessageWithFields() {
 	err := Wrap(testErr, "user message")
 	s.Equal("user message\tdescription", line(UserMessageWithFields(err)))
 
-	_ = err.AddField("test_key", "test_value")
+	err = err.AddField("test_key", "test_value")
 	s.Equal("test_key=\"test_value\" user message\tdescription", line(UserMessageWithFields(err)))
 }
 
@@ -135,6 +136,41 @@ func (s *TraceSuite) TestWrapNil() {
 
 	err4 := Wrap(err3)
 	s.Nil(err4)
+}
+
+func TestRaceErrorWrap(t *testing.T) {
+	baseErr := BadParameter("foo")
+
+	iters := 100_000
+
+	wg := sync.WaitGroup{}
+	wg.Add(3)
+
+	// trace.Wrap with format arguments
+	go func() {
+		for i := 0; i < iters; i++ {
+			_ = Wrap(baseErr, "foo bar %q", "baz")
+		}
+		wg.Done()
+	}()
+
+	// trace.WrapWithMessage
+	go func() {
+		for i := 0; i < iters; i++ {
+			_ = WrapWithMessage(baseErr, "foo bar %q", "baz")
+		}
+		wg.Done()
+	}()
+
+	// plain Error() call
+	go func() {
+		for i := 0; i < iters; i++ {
+			_ = baseErr.Error()
+		}
+		wg.Done()
+	}()
+
+	wg.Wait()
 }
 
 func (s *TraceSuite) TestWrapStdlibErrors() {
