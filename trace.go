@@ -61,7 +61,7 @@ func Wrap(err error, args ...interface{}) Error {
 		trace = newTrace(err, 2)
 	}
 	if len(args) > 0 {
-		trace = trace.AddUserMessage(args[0], args[1:]...)
+		trace = AddUserMessage(trace, args[0], args[1:]...)
 	}
 	return trace
 }
@@ -172,7 +172,7 @@ func WrapWithMessage(err error, message interface{}, args ...interface{}) Error 
 	} else {
 		trace = newTrace(err, 2)
 	}
-	return trace.AddUserMessage(message, args...)
+	return AddUserMessage(trace, message, args...)
 }
 
 // Errorf is similar to fmt.Errorf except that it captures
@@ -253,7 +253,7 @@ type RawTrace struct {
 	Fields map[string]interface{} `json:"fields,omitempty"`
 }
 
-func (e *TraceErr) clone() *TraceErr {
+func (e *TraceErr) Clone() *TraceErr {
 	if e == nil {
 		return nil
 	}
@@ -281,31 +281,28 @@ func (e *TraceErr) clone() *TraceErr {
 // AddUserMessage adds user-friendly message describing the error nature
 func (e *TraceErr) AddUserMessage(formatArg interface{}, rest ...interface{}) *TraceErr {
 	newMessage := fmt.Sprintf(fmt.Sprintf("%v", formatArg), rest...)
-	errClone := e.clone()
-	errClone.Messages = append(errClone.Messages, newMessage)
-	return errClone
+	e.Messages = append(e.Messages, newMessage)
+	return e
 }
 
 // AddFields adds the given map of fields to the error being reported
 func (e *TraceErr) AddFields(fields map[string]interface{}) *TraceErr {
-	errClone := e.clone()
-	if errClone.Fields == nil {
-		errClone.Fields = make(map[string]interface{}, len(fields))
+	if e.Fields == nil {
+		e.Fields = make(map[string]interface{}, len(fields))
 	}
 	for k, v := range fields {
-		errClone.Fields[k] = v
+		e.Fields[k] = v
 	}
-	return errClone
+	return e
 }
 
 // AddField adds a single field to the error wrapper as context for the error
 func (e *TraceErr) AddField(k string, v interface{}) *TraceErr {
-	errClone := e.clone()
-	if errClone.Fields == nil {
-		errClone.Fields = make(map[string]interface{}, 1)
+	if e.Fields == nil {
+		e.Fields = make(map[string]interface{}, 1)
 	}
-	errClone.Fields[k] = v
-	return errClone
+	e.Fields[k] = v
+	return e
 }
 
 // UserMessage returns user-friendly error message
@@ -417,6 +414,15 @@ type Error interface {
 
 	// GetFields returns any fields that have been added to the error
 	GetFields() map[string]interface{}
+
+	// Clone returns a copy of the current Error.
+	Clone() *TraceErr
+}
+
+// AddUserMessage returns a new TraceErr with added user message.
+func AddUserMessage(err Error, formatArg interface{}, rest ...interface{}) *TraceErr {
+	errCopy := err.Clone()
+	return errCopy.AddUserMessage(formatArg, rest...)
 }
 
 // NewAggregate creates a new aggregate instance from the specified
