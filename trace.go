@@ -61,7 +61,7 @@ func Wrap(err error, args ...interface{}) Error {
 		trace = newTrace(err, 2)
 	}
 	if len(args) > 0 {
-		trace = AddUserMessage(trace, args[0], args[1:]...)
+		trace = WithUserMessage(trace, args[0], args[1:]...)
 	}
 	return trace
 }
@@ -172,7 +172,7 @@ func WrapWithMessage(err error, message interface{}, args ...interface{}) Error 
 	} else {
 		trace = newTrace(err, 2)
 	}
-	return AddUserMessage(trace, message, args...)
+	return WithUserMessage(trace, message, args...)
 }
 
 // Errorf is similar to fmt.Errorf except that it captures
@@ -278,33 +278,6 @@ func (e *TraceErr) Clone() *TraceErr {
 	return tr
 }
 
-// AddUserMessage adds user-friendly message describing the error nature
-func (e *TraceErr) AddUserMessage(formatArg interface{}, rest ...interface{}) *TraceErr {
-	newMessage := fmt.Sprintf(fmt.Sprintf("%v", formatArg), rest...)
-	e.Messages = append(e.Messages, newMessage)
-	return e
-}
-
-// AddFields adds the given map of fields to the error being reported
-func (e *TraceErr) AddFields(fields map[string]interface{}) *TraceErr {
-	if e.Fields == nil {
-		e.Fields = make(map[string]interface{}, len(fields))
-	}
-	for k, v := range fields {
-		e.Fields[k] = v
-	}
-	return e
-}
-
-// AddField adds a single field to the error wrapper as context for the error
-func (e *TraceErr) AddField(k string, v interface{}) *TraceErr {
-	if e.Fields == nil {
-		e.Fields = make(map[string]interface{}, 1)
-	}
-	e.Fields[k] = v
-	return e
-}
-
 // UserMessage returns user-friendly error message
 func (e *TraceErr) UserMessage() string {
 	if len(e.Messages) > 0 {
@@ -380,7 +353,7 @@ func (e *TraceErr) OrigError() error {
 }
 
 // GoString formats this trace object for use with
-// with the "%#v" format string
+// the "%#v" format string
 func (e *TraceErr) GoString() string {
 	return e.DebugReport()
 }
@@ -399,19 +372,6 @@ type Error interface {
 	DebugReporter
 	UserMessager
 
-	// AddUserMessage adds formatted user-facing message
-	// to the error, depends on the implementation,
-	// usually works as fmt.Sprintf(formatArg, rest...)
-	// but implementations can choose another way, e.g. treat
-	// arguments as structured args
-	AddUserMessage(formatArg interface{}, rest ...interface{}) *TraceErr
-
-	// AddField adds additional field information to the error
-	AddField(key string, value interface{}) *TraceErr
-
-	// AddFields adds a map of additional fields to the error
-	AddFields(fields map[string]interface{}) *TraceErr
-
 	// GetFields returns any fields that have been added to the error
 	GetFields() map[string]interface{}
 
@@ -419,10 +379,41 @@ type Error interface {
 	Clone() *TraceErr
 }
 
-// AddUserMessage returns a new TraceErr with added user message.
-func AddUserMessage(err Error, formatArg interface{}, rest ...interface{}) *TraceErr {
+// WithUserMessage adds formatted user-facing message
+// to the error, depends on the implementation,
+// usually works as fmt.Sprintf(formatArg, rest...)
+// but implementations can choose another way, e.g. treat
+// arguments as structured args.
+func WithUserMessage(err Error, formatArg interface{}, rest ...interface{}) *TraceErr {
 	errCopy := err.Clone()
-	return errCopy.AddUserMessage(formatArg, rest...)
+
+	newMessage := fmt.Sprintf(fmt.Sprintf("%v", formatArg), rest...)
+	errCopy.Messages = append(errCopy.Messages, newMessage)
+	return errCopy
+}
+
+// WithField adds additional field information to the error.
+func WithField(err Error, key string, value interface{}) *TraceErr {
+	errCopy := err.Clone()
+
+	if errCopy.Fields == nil {
+		errCopy.Fields = make(map[string]interface{}, 1)
+	}
+	errCopy.Fields[key] = value
+	return errCopy
+}
+
+// WithFields adds a map of additional fields to the error
+func WithFields(err Error, fields map[string]interface{}) *TraceErr {
+	errCopy := err.Clone()
+
+	if errCopy.Fields == nil {
+		errCopy.Fields = make(map[string]interface{}, len(fields))
+	}
+	for k, v := range fields {
+		errCopy.Fields[k] = v
+	}
+	return errCopy
 }
 
 // NewAggregate creates a new aggregate instance from the specified
