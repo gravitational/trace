@@ -97,7 +97,7 @@ func (s *TraceSuite) TestUserMessageWithFields() {
 	err := Wrap(testErr, "user message")
 	s.Equal("user message\tdescription", line(UserMessageWithFields(err)))
 
-	err = err.AddField("test_key", "test_value")
+	err = WithField(err, "test_key", "test_value")
 	s.Equal("test_key=\"test_value\" user message\tdescription", line(UserMessageWithFields(err)))
 }
 
@@ -108,7 +108,7 @@ func (s *TraceSuite) TestGetFields() {
 	fields := map[string]interface{}{
 		"test_key": "test_value",
 	}
-	err := Wrap(testErr).AddFields(fields)
+	err := WithFields(Wrap(testErr), fields)
 	s.Equal(fields, GetFields(err))
 
 	// ensure that you can get fields from a proxyError
@@ -521,12 +521,12 @@ func (s *TraceSuite) TestErrorf() {
 }
 
 func (s *TraceSuite) TestWithField() {
-	err := Wrap(Errorf("error")).AddField("testfield", true)
+	err := WithField(Wrap(Errorf("error")), "testfield", true)
 	s.Regexp(".*.testfield.*", line(DebugReport(err)))
 }
 
 func (s *TraceSuite) TestWithFields() {
-	err := Wrap(Errorf("error")).AddFields(map[string]interface{}{
+	err := WithFields(Wrap(Errorf("error")), map[string]interface{}{
 		"testfield1": true,
 		"testfield2": "value2",
 	})

@@ -61,7 +61,7 @@ func Wrap(err error, args ...interface{}) Error {
 		trace = newTrace(err, 2)
 	}
 	if len(args) > 0 {
-		trace = trace.AddUserMessage(args[0], args[1:]...)
+		trace = WithUserMessage(trace, args[0], args[1:]...)
 	}
 	return trace
 }
@@ -172,7 +172,7 @@ func WrapWithMessage(err error, message interface{}, args ...interface{}) Error 
 	} else {
 		trace = newTrace(err, 2)
 	}
-	return trace.AddUserMessage(message, args...)
+	return WithUserMessage(trace, message, args...)
 }
 
 // Errorf is similar to fmt.Errorf except that it captures
@@ -253,7 +253,7 @@ type RawTrace struct {
 	Fields map[string]interface{} `json:"fields,omitempty"`
 }
 
-func (e *TraceErr) clone() *TraceErr {
+func (e *TraceErr) Clone() *TraceErr {
 	if e == nil {
 		return nil
 	}
@@ -276,36 +276,6 @@ func (e *TraceErr) clone() *TraceErr {
 	}
 
 	return tr
-}
-
-// AddUserMessage adds user-friendly message describing the error nature
-func (e *TraceErr) AddUserMessage(formatArg interface{}, rest ...interface{}) *TraceErr {
-	newMessage := fmt.Sprintf(fmt.Sprintf("%v", formatArg), rest...)
-	errClone := e.clone()
-	errClone.Messages = append(errClone.Messages, newMessage)
-	return errClone
-}
-
-// AddFields adds the given map of fields to the error being reported
-func (e *TraceErr) AddFields(fields map[string]interface{}) *TraceErr {
-	errClone := e.clone()
-	if errClone.Fields == nil {
-		errClone.Fields = make(map[string]interface{}, len(fields))
-	}
-	for k, v := range fields {
-		errClone.Fields[k] = v
-	}
-	return errClone
-}
-
-// AddField adds a single field to the error wrapper as context for the error
-func (e *TraceErr) AddField(k string, v interface{}) *TraceErr {
-	errClone := e.clone()
-	if errClone.Fields == nil {
-		errClone.Fields = make(map[string]interface{}, 1)
-	}
-	errClone.Fields[k] = v
-	return errClone
 }
 
 // UserMessage returns user-friendly error message
@@ -383,7 +353,7 @@ func (e *TraceErr) OrigError() error {
 }
 
 // GoString formats this trace object for use with
-// with the "%#v" format string
+// the "%#v" format string
 func (e *TraceErr) GoString() string {
 	return e.DebugReport()
 }
@@ -402,21 +372,48 @@ type Error interface {
 	DebugReporter
 	UserMessager
 
-	// AddUserMessage adds formatted user-facing message
-	// to the error, depends on the implementation,
-	// usually works as fmt.Sprintf(formatArg, rest...)
-	// but implementations can choose another way, e.g. treat
-	// arguments as structured args
-	AddUserMessage(formatArg interface{}, rest ...interface{}) *TraceErr
-
-	// AddField adds additional field information to the error
-	AddField(key string, value interface{}) *TraceErr
-
-	// AddFields adds a map of additional fields to the error
-	AddFields(fields map[string]interface{}) *TraceErr
-
 	// GetFields returns any fields that have been added to the error
 	GetFields() map[string]interface{}
+
+	// Clone returns a copy of the current Error.
+	Clone() *TraceErr
+}
+
+// WithUserMessage adds formatted user-facing message
+// to the error, depends on the implementation,
+// usually works as fmt.Sprintf(formatArg, rest...)
+// but implementations can choose another way, e.g. treat
+// arguments as structured args.
+func WithUserMessage(err Error, formatArg interface{}, rest ...interface{}) *TraceErr {
+	errCopy := err.Clone()
+
+	newMessage := fmt.Sprintf(fmt.Sprintf("%v", formatArg), rest...)
+	errCopy.Messages = append(errCopy.Messages, newMessage)
+	return errCopy
+}
+
+// WithField adds additional field information to the error.
+func WithField(err Error, key string, value interface{}) *TraceErr {
+	errCopy := err.Clone()
+
+	if errCopy.Fields == nil {
+		errCopy.Fields = make(map[string]interface{}, 1)
+	}
+	errCopy.Fields[key] = value
+	return errCopy
+}
+
+// WithFields adds a map of additional fields to the error
+func WithFields(err Error, fields map[string]interface{}) *TraceErr {
+	errCopy := err.Clone()
+
+	if errCopy.Fields == nil {
+		errCopy.Fields = make(map[string]interface{}, len(fields))
+	}
+	for k, v := range fields {
+		errCopy.Fields[k] = v
+	}
+	return errCopy
 }
 
 // NewAggregate creates a new aggregate instance from the specified
