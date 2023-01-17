@@ -26,27 +26,35 @@ import (
 
 func TestReplyJSON(t *testing.T) {
 	t.Parallel()
-	var (
-		errCode               = 400
-		errText               = "test error"
-		expectedErrorResponse = "" +
-			"{\n" +
-			"    \"error\": {\n" +
-			"        \"message\": \"" + errText + "\"\n" +
-			"    }\n" +
-			"}"
-	)
 
-	for _, tc := range []struct {
+	var expectedErrorResponse = `{
+		"error": {
+			"message": "test error"
+		}
+	}`
+
+	tests := []struct {
 		desc string
 		err  error
 	}{
-		{"plain error", errors.New("test error")},
-		{"trace error", &TraceErr{Err: errors.New("test error")}},
-		{"trace error with stacktrace", &TraceErr{Err: errors.New("test error"), Traces: Traces{{Path: "A", Func: "B", Line: 1}}}},
-	} {
+		{
+			desc: "plain error",
+			err:  errors.New("test error"),
+		},
+		{
+			desc: "trace error",
+			err:  &TraceErr{Err: errors.New("test error")},
+		},
+		{
+			desc: "trace error with stacktrace",
+			err:  &TraceErr{Err: errors.New("test error"), Traces: Traces{{Path: "A", Func: "B", Line: 1}}},
+		},
+	}
+
+	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
 			recorder := httptest.NewRecorder()
+			errCode := 400
 			replyJSON(recorder, errCode, tc.err)
 			require.JSONEq(t, expectedErrorResponse, recorder.Body.String())
 		})
@@ -55,12 +63,35 @@ func TestReplyJSON(t *testing.T) {
 
 func TestUnmarshalError(t *testing.T) {
 	t.Parallel()
-	testCase := func(t *testing.T, err error, response string, isExpectedErr func(error) bool, expectedMsg string) {
-		readErr := unmarshalError(err, []byte(response))
-		require.True(t, isExpectedErr(readErr))
-		require.EqualError(t, readErr, expectedMsg)
+
+	tests := []struct {
+		desc          string
+		inputErr      error
+		inputResponse string
+		assertErr     func(error) bool
+		expectedMsg   string
+	}{
+		{
+			desc:          "unmarshal not found error",
+			inputErr:      &NotFoundError{},
+			inputResponse: `{"error": {"message": "ABC"}}`,
+			assertErr:     IsNotFound,
+			expectedMsg:   "ABC",
+		},
+		{
+			desc:          "unmarshal access denied error",
+			inputErr:      &AccessDeniedError{},
+			inputResponse: `{"error": {"message": "ABC"}}`,
+			assertErr:     IsAccessDenied,
+			expectedMsg:   "ABC",
+		},
 	}
 
-	testCase(t, &NotFoundError{}, `{"error": {"message": "ABC"}}`, IsNotFound, "ABC")
-	testCase(t, &AccessDeniedError{}, `{"error": {"message": "ABC"}}`, IsAccessDenied, "ABC")
+	for _, tc := range tests {
+		t.Run(tc.desc, func(t *testing.T) {
+			readErr := unmarshalError(tc.inputErr, []byte(tc.inputResponse))
+			require.True(t, tc.assertErr(readErr))
+			require.EqualError(t, readErr, tc.expectedMsg)
+		})
+	}
 }
