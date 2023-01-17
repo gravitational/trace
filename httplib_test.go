@@ -85,6 +85,34 @@ func TestUnmarshalError(t *testing.T) {
 			assertErr:     IsAccessDenied,
 			expectedMsg:   "ABC",
 		},
+		{
+			desc:          "unmarshal error without error JSON key",
+			inputErr:      &AccessDeniedError{},
+			inputResponse: `{"message": "ABC"}`,
+			assertErr:     IsAccessDenied,
+			expectedMsg:   "ABC",
+		},
+		{
+			desc:          "unmarshal invalid error",
+			inputErr:      &AccessDeniedError{},
+			inputResponse: `{"error": "message ABC"}`,
+			assertErr:     IsAccessDenied,
+			expectedMsg:   "{\"error\": \"message ABC\"}\n\taccess denied",
+		},
+		{
+			desc:          "unmarshal invalid error without error JSON key",
+			inputErr:      &AccessDeniedError{},
+			inputResponse: `["error message ABC"]`,
+			assertErr:     IsAccessDenied,
+			expectedMsg:   "[\"error message ABC\"]\n\taccess denied",
+		},
+		{
+			desc:          "unmarshal error with non-JSON body",
+			inputErr:      &AccessDeniedError{},
+			inputResponse: "error message ABC",
+			assertErr:     IsAccessDenied,
+			expectedMsg:   "error message ABC\n\taccess denied",
+		},
 	}
 
 	for _, tc := range tests {
