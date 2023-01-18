@@ -129,7 +129,7 @@ func unmarshalError(err error, responseBody []byte) error {
 
 // errorOnInvalidJSON is used to construct a TraceErr with the
 // input error as Err and the responseBody as Messages.
-// This function is used when the responseBody is not a valid
+// This function is used when the responseBody is not valid
 // JSON or it contains an unexpected JSON.
 func errorOnInvalidJSON(err error, responseBody []byte) error {
 	return &TraceErr{
