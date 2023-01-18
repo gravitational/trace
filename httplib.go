@@ -107,12 +107,11 @@ func unmarshalError(err error, responseBody []byte) error {
 	}
 	var raw RawTrace
 	if err2 := json.Unmarshal(responseBody, &raw); err2 != nil {
-		return err
+		return errorOnInvalidJSON(err, responseBody)
 	}
 	if len(raw.Err) != 0 {
-		err2 := json.Unmarshal(raw.Err, err)
-		if err2 != nil {
-			return err
+		if err2 := json.Unmarshal(raw.Err, err); err2 != nil {
+			return errorOnInvalidJSON(err, responseBody)
 		}
 		return &TraceErr{
 			Traces:   raw.Traces,
@@ -122,6 +121,19 @@ func unmarshalError(err error, responseBody []byte) error {
 			Fields:   raw.Fields,
 		}
 	}
-	json.Unmarshal(responseBody, err)
+	if err2 := json.Unmarshal(responseBody, err); err2 != nil {
+		return errorOnInvalidJSON(err, responseBody)
+	}
 	return err
+}
+
+// errorOnInvalidJSON is used to construct a TraceErr with the
+// input error as Err and the responseBody as Messages.
+// This function is used when the responseBody is not valid
+// JSON or it contains an unexpected JSON.
+func errorOnInvalidJSON(err error, responseBody []byte) error {
+	return &TraceErr{
+		Err:      err,
+		Messages: []string{string(responseBody)},
+	}
 }
