@@ -54,7 +54,7 @@ func TestReplyJSON(t *testing.T) {
 	for _, tc := range tests {
 		t.Run(tc.desc, func(t *testing.T) {
 			recorder := httptest.NewRecorder()
-			errCode := 400
+			const errCode = 400
 			replyJSON(recorder, errCode, tc.err)
 			require.JSONEq(t, expectedErrorResponse, recorder.Body.String())
 		})
