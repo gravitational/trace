@@ -546,7 +546,7 @@ type OAuth2Error struct {
 	Query   url.Values `json:"query"`
 }
 
-//Error returns log friendly description of an error
+// Error returns log friendly description of an error
 func (o *OAuth2Error) Error() string {
 	return fmt.Sprintf("OAuth2 error code=%v, message=%v", o.Code, o.Message)
 }
@@ -657,4 +657,51 @@ func IsRetryError(e error) bool {
 	}
 	_, ok := Unwrap(e).(ad)
 	return ok
+}
+
+// ReplyAlreadyHandled returns a new instance of ReplyAlreadyHandledError
+func ReplyAlreadyHandled(message string, args ...interface{}) Error {
+	return newTrace(&ReplyAlreadyHandledError{
+		Message: fmt.Sprintf(message, args...),
+	}, 2)
+}
+
+// ReplyAlreadyHandledError defines an error which indicates that a dispatch function
+// has already handled a reply to an SSH channel internally
+type ReplyAlreadyHandledError struct {
+	Message string `json:"message"`
+}
+
+// Error returns log friendly description of an error
+func (e *ReplyAlreadyHandledError) Error() string {
+	return e.Message
+}
+
+// OrigError returns original error
+func (e *ReplyAlreadyHandledError) OrigError() error {
+	return e
+}
+
+// IsReplyAlreadyHandledError indicates that this error is of ReplyAlreadyHandledError type
+func (e *ReplyAlreadyHandledError) IsReplyAlreadyHandledError() bool {
+	return true
+}
+
+// Is provides an equivalency check for ReplyAlreadyHandledError to be used with errors.Is
+func (e *ReplyAlreadyHandledError) Is(target error) bool {
+	err, ok := Unwrap(target).(*ReplyAlreadyHandledError)
+	if !ok {
+		return false
+	}
+
+	return err.Message == e.Message
+}
+
+// IsReplyAlreadyHandled returns whether this error is of ReplyAlreadyHandledError type
+func IsReplyAlreadyHandled(e error) bool {
+	type ni interface {
+		IsReplyAlreadyHandledError() bool
+	}
+	err, ok := Unwrap(e).(ni)
+	return ok && err.IsReplyAlreadyHandledError()
 }

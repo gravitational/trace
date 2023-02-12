@@ -104,6 +104,12 @@ func Test_Is(t *testing.T) {
 				name: "AlreadyExists",
 			},
 		},
+		&ReplyAlreadyHandledError{}: {
+			{
+				err:  ReplyAlreadyHandled(""),
+				name: "ReplyAlreadyHandled",
+			},
+		},
 	}
 
 	// none of the target errors should Is for these and many more...
@@ -386,6 +392,26 @@ func TestRetryError_Is(t *testing.T) {
 		Retry(os.ErrNotExist, "one"),
 		Retry(io.EOF, "two"),
 		Retry(os.ErrNotExist, "two"),
+	}
+
+	for i := range errs {
+		for j := range errs {
+			if i == j {
+				require.ErrorIs(t, errs[i], errs[j])
+				require.ErrorIs(t, Wrap(errs[i]), errs[j])
+				require.ErrorIs(t, Wrap(errs[i]), Wrap(errs[j]))
+			} else {
+				require.NotErrorIs(t, errs[i], errs[j])
+				require.NotErrorIs(t, errs[j], errs[i])
+			}
+		}
+	}
+}
+
+func TestIsReplyAlreadyHandledError_Is(t *testing.T) {
+	errs := []error{
+		ReplyAlreadyHandled("one"),
+		ReplyAlreadyHandled("two"),
 	}
 
 	for i := range errs {
