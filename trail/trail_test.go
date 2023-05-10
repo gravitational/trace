@@ -50,7 +50,7 @@ func (s *TrailSuite) TestConversion() {
 		{
 			Error: io.EOF,
 			Predicate: func(err error) bool {
-				return errors.Is(err, io.EOF)
+				return err == io.EOF && errors.Is(err, io.EOF)
 			},
 		},
 		{
@@ -92,8 +92,12 @@ func (s *TrailSuite) TestConversion() {
 		s.Equal(tc.Error.Error(), grpc.ErrorDesc(grpcError), "test case %v", i+1)
 		out := FromGRPC(grpcError)
 		s.True(tc.Predicate(out), "test case %v", i+1)
-		s.Regexp(".*trail_test.go.*", line(trace.DebugReport(out)))
-		s.NotRegexp(".*trail.go.*", line(trace.DebugReport(out)))
+
+		var traceErr *trace.TraceErr
+		if errors.As(out, &traceErr) {
+			s.Regexp(".*trail_test.go.*", line(trace.DebugReport(out)))
+			s.NotRegexp(".*trail.go.*", line(trace.DebugReport(out)))
+		}
 	}
 }
 

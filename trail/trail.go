@@ -18,21 +18,23 @@ limitations under the License.
 //
 // Example server that sends the GRPC error and attaches metadata:
 //
-//  func (s *server) Echo(ctx context.Context, message *gw.StringMessage) (*gw.StringMessage, error) {
-//      trace.SetDebug(true) // to tell trace to start attaching metadata
-//      // Send sends metadata via grpc header and converts error to GRPC compatible one
-//      return nil, trail.Send(ctx, trace.AccessDenied("missing authorization"))
-//  }
+//	func (s *server) Echo(ctx context.Context, message *gw.StringMessage) (*gw.StringMessage, error) {
+//	    trace.SetDebug(true) // to tell trace to start attaching metadata
+//	    // Send sends metadata via grpc header and converts error to GRPC compatible one
+//	    return nil, trail.Send(ctx, trace.AccessDenied("missing authorization"))
+//	}
 //
 // Example client reading error and trace debug info:
 //
-//  var header metadata.MD
-//	r, err := c.Echo(context.Background(), &gw.StringMessage{Value: message}, grpc.Header(&header))
-//	if err != nil {
-//      // FromGRPC reads error, converts it back to trace error and attaches debug metadata
-//      // like stack trace of the error origin back to the error
-//		err = trail.FromGRPC(err, header)
-///     // this line will log original trace of the error
+//	 var header metadata.MD
+//		r, err := c.Echo(context.Background(), &gw.StringMessage{Value: message}, grpc.Header(&header))
+//		if err != nil {
+//	     // FromGRPC reads error, converts it back to trace error and attaches debug metadata
+//	     // like stack trace of the error origin back to the error
+//			err = trail.FromGRPC(err, header)
+//
+// /     // this line will log original trace of the error
+//
 //		log.Errorf("error saying echo: %v", trace.DebugReport(err))
 //		return
 //	}
@@ -128,6 +130,11 @@ func FromGRPC(err error, args ...interface{}) error {
 	if err == nil {
 		return nil
 	}
+
+	if errors.Is(err, io.EOF) {
+		return err
+	}
+
 	code := grpc.Code(err)
 	message := grpc.ErrorDesc(err)
 	var e error
