@@ -18,6 +18,7 @@ package trace
 
 import (
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -546,7 +547,7 @@ type OAuth2Error struct {
 	Query   url.Values `json:"query"`
 }
 
-//Error returns log friendly description of an error
+// Error returns log friendly description of an error
 func (o *OAuth2Error) Error() string {
 	return fmt.Sprintf("OAuth2 error code=%v, message=%v", o.Code, o.Message)
 }
@@ -597,7 +598,7 @@ func IsOAuth2(e error) bool {
 
 // IsEOF returns true if the passed error is io.EOF
 func IsEOF(e error) bool {
-	return Unwrap(e) == io.EOF
+	return errors.Is(Unwrap(e), io.EOF)
 }
 
 // Retry returns new instance of RetryError which indicates a transient error type
