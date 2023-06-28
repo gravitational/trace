@@ -23,6 +23,7 @@ import (
 	"fmt"
 	"io"
 	"net/http"
+	"net/url"
 	"os"
 	"strings"
 	"sync"
@@ -128,8 +129,7 @@ func (s *TraceSuite) TestWrapNil() {
 	err1 := Wrap(nil, "message: %v", "extra")
 	s.Nil(err1)
 
-	var err2 error
-	err2 = nil
+	var err2 error = nil
 
 	err3 := Wrap(err2)
 	s.Nil(err3)
@@ -757,4 +757,129 @@ func TestStdlibCompat_Aggregate(t *testing.T) {
 	var badParamErrTarget *BadParameterError
 	require.ErrorAs(t, agg, &badParamErrTarget)
 	require.Equal(t, bpMsg, badParamErrTarget.Message)
+}
+
+func TestFatal(t *testing.T) {
+	t.Cleanup(func() {
+		SetDebug(false)
+	})
+
+	err := errors.New("foo")
+	tests := []struct {
+		name        string
+		newErr      func()
+		newFatalErr func()
+	}{
+		{
+			name: "NotFound",
+			newErr: func() {
+				_ = NotFound("foo")
+			},
+			newFatalErr: func() {
+				_ = FatalNotFound("foo")
+			},
+		},
+		{
+			name: "AlreadyExists",
+			newErr: func() {
+				_ = AlreadyExists("foo")
+			},
+			newFatalErr: func() {
+				_ = FatalAlreadyExists("foo")
+			},
+		},
+		{
+			name: "BadParameter",
+			newErr: func() {
+				_ = BadParameter("foo")
+			},
+			newFatalErr: func() {
+				_ = FatalBadParameter("foo")
+			},
+		},
+		{
+			name: "NotImplemented",
+			newErr: func() {
+				_ = NotImplemented("foo")
+			},
+			newFatalErr: func() {
+				_ = FatalNotImplemented("foo")
+			},
+		},
+		{
+			name: "CompareFailed",
+			newErr: func() {
+				_ = CompareFailed("foo")
+			},
+			newFatalErr: func() {
+				_ = FatalCompareFailed("foo")
+			},
+		},
+		{
+			name: "AccessDenied",
+			newErr: func() {
+				_ = AccessDenied("foo")
+			},
+			newFatalErr: func() {
+				_ = FatalAccessDenied("foo")
+			},
+		},
+		{
+			name: "ConnectionProblem",
+			newErr: func() {
+				_ = ConnectionProblem(err, "foo")
+			},
+			newFatalErr: func() {
+				_ = FatalConnectionProblem(err, "foo")
+			},
+		},
+		{
+			name: "LimitExceeded",
+			newErr: func() {
+				_ = LimitExceeded("foo")
+			},
+			newFatalErr: func() {
+				_ = FatalLimitExceeded("foo")
+			},
+		},
+		{
+			name: "Trust",
+			newErr: func() {
+				_ = Trust(err, "foo")
+			},
+			newFatalErr: func() {
+				_ = FatalTrust(err, "foo")
+			},
+		},
+		{
+			name: "OAuth2",
+			newErr: func() {
+				_ = OAuth2("foo", "foo", url.Values{})
+			},
+			newFatalErr: func() {
+				_ = FatalOAuth2("foo", "foo", url.Values{})
+			},
+		},
+		{
+			name: "Retry",
+			newErr: func() {
+				_ = Retry(err, "foo")
+			},
+			newFatalErr: func() {
+				_ = FatalRetry(err, "foo")
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			SetDebug(false)
+			require.NotPanics(t, tt.newErr)
+			require.NotPanics(t, tt.newFatalErr)
+
+			SetDebug(true)
+			require.NotPanics(t, tt.newErr)
+			require.Panics(t, tt.newFatalErr)
+		})
+	}
 }

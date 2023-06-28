@@ -34,7 +34,7 @@ import (
 
 var debug int32
 
-// SetDebug turns on/off debugging mode, that causes Fatalf to panic
+// SetDebug turns on/off debugging mode that causes Fatal* functions to panic
 func SetDebug(enabled bool) {
 	if enabled {
 		atomic.StoreInt32(&debug, 1)
@@ -58,7 +58,7 @@ func Wrap(err error, args ...interface{}) Error {
 	if traceErr, ok := err.(Error); ok {
 		trace = traceErr
 	} else {
-		trace = newTrace(err, 2)
+		trace = newTrace(err, 2, false)
 	}
 	if len(args) > 0 {
 		trace = WithUserMessage(trace, args[0], args[1:]...)
@@ -170,7 +170,7 @@ func WrapWithMessage(err error, message interface{}, args ...interface{}) Error 
 	if traceErr, ok := err.(Error); ok {
 		trace = traceErr
 	} else {
-		trace = newTrace(err, 2)
+		trace = newTrace(err, 2, false)
 	}
 	return WithUserMessage(trace, message, args...)
 }
@@ -180,7 +180,7 @@ func WrapWithMessage(err error, message interface{}, args ...interface{}) Error 
 // callee, line number and function that simplifies debugging
 func Errorf(format string, args ...interface{}) (err error) {
 	err = fmt.Errorf(format, args...)
-	return newTrace(err, 2)
+	return newTrace(err, 2, false)
 }
 
 // Fatalf - If debug is false Fatalf calls Errorf. If debug is
@@ -193,7 +193,11 @@ func Fatalf(format string, args ...interface{}) error {
 	}
 }
 
-func newTrace(err error, depth int) *TraceErr {
+func newTrace(err error, depth int, fatal bool) *TraceErr {
+	if fatal && IsDebug() {
+		panic(err)
+	}
+
 	traces := internal.CaptureTraces(depth)
 	return &TraceErr{Err: err, Traces: traces}
 }
@@ -429,7 +433,7 @@ func NewAggregate(errs ...error) error {
 	if len(nonNils) == 0 {
 		return nil
 	}
-	return newTrace(aggregate(nonNils), 2)
+	return newTrace(aggregate(nonNils), 2, false)
 }
 
 // NewAggregateFromChannel creates a new aggregate instance from the provided
@@ -518,7 +522,7 @@ func wrapProxy(err error) Error {
 	}
 	return proxyError{
 		// Do not include ReadError in the trace
-		TraceErr: newTrace(err, 3),
+		TraceErr: newTrace(err, 3, false),
 	}
 }
 

@@ -29,7 +29,15 @@ import (
 func NotFound(message string, args ...interface{}) Error {
 	return newTrace(&NotFoundError{
 		Message: fmt.Sprintf(message, args...),
-	}, 2)
+	}, 2, false)
+}
+
+// FatalNotFound returns new instance of not found error
+// or panics if SetDebug was previously called with true
+func FatalNotFound(message string, args ...interface{}) Error {
+	return newTrace(&NotFoundError{
+		Message: fmt.Sprintf(message, args...),
+	}, 2, true)
 }
 
 // NotFoundError indicates that object has not been found
@@ -85,7 +93,15 @@ func IsNotFound(err error) bool {
 func AlreadyExists(message string, args ...interface{}) Error {
 	return newTrace(&AlreadyExistsError{
 		Message: fmt.Sprintf(message, args...),
-	}, 2)
+	}, 2, false)
+}
+
+// FatalAlreadyExists returns a new instance of AlreadyExists error
+// or panics if SetDebug was previously called with true
+func FatalAlreadyExists(message string, args ...interface{}) Error {
+	return newTrace(&AlreadyExistsError{
+		Message: fmt.Sprintf(message, args...),
+	}, 2, true)
 }
 
 // AlreadyExistsError indicates that there's a duplicate object that already
@@ -136,7 +152,15 @@ func IsAlreadyExists(e error) bool {
 func BadParameter(message string, args ...interface{}) Error {
 	return newTrace(&BadParameterError{
 		Message: fmt.Sprintf(message, args...),
-	}, 2)
+	}, 2, false)
+}
+
+// FatalBadParameter returns a new instance of BadParameterError
+// or panics if SetDebug was previously called with true
+func FatalBadParameter(message string, args ...interface{}) Error {
+	return newTrace(&BadParameterError{
+		Message: fmt.Sprintf(message, args...),
+	}, 2, true)
 }
 
 // BadParameterError indicates that something is wrong with passed
@@ -183,7 +207,15 @@ func IsBadParameter(e error) bool {
 func NotImplemented(message string, args ...interface{}) Error {
 	return newTrace(&NotImplementedError{
 		Message: fmt.Sprintf(message, args...),
-	}, 2)
+	}, 2, false)
+}
+
+// FatalNotImplemented returns a new instance of NotImplementedError
+// or panics if SetDebug was previously called with true
+func FatalNotImplemented(message string, args ...interface{}) Error {
+	return newTrace(&NotImplementedError{
+		Message: fmt.Sprintf(message, args...),
+	}, 2, true)
 }
 
 // NotImplementedError defines an error condition to describe the result
@@ -227,10 +259,18 @@ func IsNotImplemented(e error) bool {
 }
 
 // CompareFailed returns new instance of CompareFailedError
+// or panics if SetDebug was previously called with true
 func CompareFailed(message string, args ...interface{}) Error {
 	return newTrace(&CompareFailedError{
 		Message: fmt.Sprintf(message, args...),
-	}, 2)
+	}, 2, false)
+}
+
+// FatalCompareFailed returns new instance of CompareFailedError
+func FatalCompareFailed(message string, args ...interface{}) Error {
+	return newTrace(&CompareFailedError{
+		Message: fmt.Sprintf(message, args...),
+	}, 2, true)
 }
 
 // CompareFailedError indicates a failed comparison (e.g. bad password or hash)
@@ -280,7 +320,15 @@ func IsCompareFailed(e error) bool {
 func AccessDenied(message string, args ...interface{}) Error {
 	return newTrace(&AccessDeniedError{
 		Message: fmt.Sprintf(message, args...),
-	}, 2)
+	}, 2, false)
+}
+
+// FatalAccessDenied returns new instance of AccessDeniedError
+// or panics if SetDebug was previously called with true
+func FatalAccessDenied(message string, args ...interface{}) Error {
+	return newTrace(&AccessDeniedError{
+		Message: fmt.Sprintf(message, args...),
+	}, 2, true)
 }
 
 // AccessDeniedError indicates denied access
@@ -332,35 +380,35 @@ func ConvertSystemError(err error) error {
 	if os.IsExist(innerError) {
 		return newTrace(&AlreadyExistsError{
 			Message: innerError.Error(),
-		}, 2)
+		}, 2, false)
 	}
 	if os.IsNotExist(innerError) {
 		return newTrace(&NotFoundError{
 			Message: innerError.Error(),
-		}, 2)
+		}, 2, false)
 	}
 	if os.IsPermission(innerError) {
 		return newTrace(&AccessDeniedError{
 			Message: innerError.Error(),
-		}, 2)
+		}, 2, false)
 	}
 	switch realErr := innerError.(type) {
 	case *net.OpError:
 		return newTrace(&ConnectionProblemError{
 			Err: realErr,
-		}, 2)
+		}, 2, false)
 	case *os.PathError:
 		message := fmt.Sprintf("failed to execute command %v error:  %v", realErr.Path, realErr.Err)
 		return newTrace(&AccessDeniedError{
 			Message: message,
-		}, 2)
+		}, 2, false)
 	case x509.SystemRootsError, x509.UnknownAuthorityError:
-		return newTrace(&TrustError{Err: innerError}, 2)
+		return newTrace(&TrustError{Err: innerError}, 2, true)
 	}
 	if _, ok := innerError.(net.Error); ok {
 		return newTrace(&ConnectionProblemError{
 			Err: innerError,
-		}, 2)
+		}, 2, false)
 	}
 	return err
 }
@@ -370,7 +418,16 @@ func ConnectionProblem(err error, message string, args ...interface{}) Error {
 	return newTrace(&ConnectionProblemError{
 		Message: fmt.Sprintf(message, args...),
 		Err:     err,
-	}, 2)
+	}, 2, false)
+}
+
+// FatalConnectionProblem returns new instance of ConnectionProblemError
+// or panics if SetDebug was previously called with true
+func FatalConnectionProblem(err error, message string, args ...interface{}) Error {
+	return newTrace(&ConnectionProblemError{
+		Message: fmt.Sprintf(message, args...),
+		Err:     err,
+	}, 2, true)
 }
 
 // ConnectionProblemError indicates a network related problem
@@ -428,7 +485,15 @@ func IsConnectionProblem(e error) bool {
 func LimitExceeded(message string, args ...interface{}) Error {
 	return newTrace(&LimitExceededError{
 		Message: fmt.Sprintf(message, args...),
-	}, 2)
+	}, 2, false)
+}
+
+// FatalLimitExceeded returns whether new instance of LimitExceededError
+// or panics if SetDebug was previously called with true
+func FatalLimitExceeded(message string, args ...interface{}) Error {
+	return newTrace(&LimitExceededError{
+		Message: fmt.Sprintf(message, args...),
+	}, 2, true)
 }
 
 // LimitExceededError indicates rate limit or connection limit problem
@@ -475,7 +540,16 @@ func Trust(err error, message string, args ...interface{}) Error {
 	return newTrace(&TrustError{
 		Message: fmt.Sprintf(message, args...),
 		Err:     err,
-	}, 2)
+	}, 2, false)
+}
+
+// FatalTrust returns new instance of TrustError
+// or panics if SetDebug was previously called with true
+func FatalTrust(err error, message string, args ...interface{}) Error {
+	return newTrace(&TrustError{
+		Message: fmt.Sprintf(message, args...),
+		Err:     err,
+	}, 2, true)
 }
 
 // TrustError indicates trust-related validation error (e.g. untrusted cert)
@@ -536,7 +610,17 @@ func OAuth2(code, message string, query url.Values) Error {
 		Code:    code,
 		Message: message,
 		Query:   query,
-	}, 2)
+	}, 2, false)
+}
+
+// FatalOAuth2 returns new instance of OAuth2Error
+// or panics if SetDebug was previously called with true
+func FatalOAuth2(code, message string, query url.Values) Error {
+	return newTrace(&OAuth2Error{
+		Code:    code,
+		Message: message,
+		Query:   query,
+	}, 2, true)
 }
 
 // OAuth2Error defined an error used in OpenID Connect Flow (OIDC)
@@ -546,7 +630,7 @@ type OAuth2Error struct {
 	Query   url.Values `json:"query"`
 }
 
-//Error returns log friendly description of an error
+// Error returns log friendly description of an error
 func (o *OAuth2Error) Error() string {
 	return fmt.Sprintf("OAuth2 error code=%v, message=%v", o.Code, o.Message)
 }
@@ -605,7 +689,16 @@ func Retry(err error, message string, args ...interface{}) Error {
 	return newTrace(&RetryError{
 		Message: fmt.Sprintf(message, args...),
 		Err:     err,
-	}, 2)
+	}, 2, false)
+}
+
+// FatalRetry returns new instance of RetryError which indicates a transient error type
+// or panics if SetDebug was previously called with true
+func FatalRetry(err error, message string, args ...interface{}) Error {
+	return newTrace(&RetryError{
+		Message: fmt.Sprintf(message, args...),
+		Err:     err,
+	}, 2, true)
 }
 
 // RetryError indicates a transient error type
