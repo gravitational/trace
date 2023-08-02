@@ -229,7 +229,7 @@ func TestBadParameterError_Is(t *testing.T) {
 	}
 }
 
-func TestIsNotImplementedError_Is(t *testing.T) {
+func TestNotImplementedError_Is(t *testing.T) {
 	errs := []error{
 		NotImplemented("one"),
 		NotImplemented("two"),
