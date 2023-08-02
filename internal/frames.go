@@ -85,11 +85,6 @@ func frameToTrace(frame runtime.Frame) Trace {
 	}
 }
 
-// SetTraces adds new traces to the list
-func (s Traces) SetTraces(traces ...Trace) {
-	s = append(s, traces...)
-}
-
 // Func returns first function in trace list
 func (s Traces) Func() string {
 	if len(s) == 0 {
