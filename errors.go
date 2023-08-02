@@ -626,9 +626,10 @@ func IsOAuth2(e error) bool {
 	})
 }
 
-// IsEOF returns true if the passed error is io.EOF
+// IsEOF returns true if the passed error is io.EOF.
+// Deprecated: Use [errors.Is] instead.
 func IsEOF(e error) bool {
-	return Unwrap(e) == io.EOF
+	return errors.Is(Unwrap(e), io.EOF)
 }
 
 // Retry returns new instance of RetryError which indicates a transient error type
