@@ -401,3 +401,99 @@ func TestRetryError_Is(t *testing.T) {
 		}
 	}
 }
+
+func TestGoErrorWrap_IsError_allTypes(t *testing.T) {
+	tests := []struct {
+		name          string
+		instance      error            // eg, BadParameter("foo")
+		instanceForAs interface{}      // eg, &BadParameterError{}
+		isError       func(error) bool // eg, IsBadParameter
+	}{
+		{
+			name:          "BadParameter",
+			instance:      BadParameter("message"),
+			instanceForAs: &BadParameterError{},
+			isError:       IsBadParameter,
+		},
+
+		{
+			name:          "NotFound",
+			instance:      NotFound("message"),
+			instanceForAs: &NotFoundError{},
+			isError:       IsNotFound,
+		},
+		{
+			name:          "AlreadyExists",
+			instance:      AlreadyExists("message"),
+			instanceForAs: &AlreadyExistsError{},
+			isError:       IsAlreadyExists,
+		},
+		{
+			name:          "NotImplemented",
+			instance:      NotImplemented("message"),
+			instanceForAs: &NotImplementedError{},
+			isError:       IsNotImplemented,
+		},
+		{
+			name:          "CompareFailed",
+			instance:      CompareFailed("message"),
+			instanceForAs: &CompareFailedError{},
+			isError:       IsCompareFailed,
+		},
+		{
+			name:          "AccessDenied",
+			instance:      AccessDenied("message"),
+			instanceForAs: &AccessDeniedError{},
+			isError:       IsAccessDenied,
+		},
+		{
+			name:          "ConnectionProblem",
+			instance:      ConnectionProblem(errors.New("underlying error"), "message"),
+			instanceForAs: &ConnectionProblemError{},
+			isError:       IsConnectionProblem,
+		},
+		{
+			name:          "LimitExceeded",
+			instance:      LimitExceeded("message"),
+			instanceForAs: &LimitExceededError{},
+			isError:       IsLimitExceeded,
+		},
+		{
+			name:          "TrustError",
+			instance:      Trust(errors.New("underlying error"), "message"),
+			instanceForAs: &TrustError{},
+			isError:       IsTrustError,
+		},
+		{
+			name:          "OAuth2",
+			instance:      OAuth2("code", "message", nil /* query */),
+			instanceForAs: &OAuth2Error{},
+			isError:       IsOAuth2,
+		},
+		{
+			name:          "RetryError",
+			instance:      Retry(errors.New("underyling error"), "message"),
+			instanceForAs: &RetryError{},
+			isError:       IsRetryError,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err1 := test.instance
+			err2 := Wrap(err1)
+			err3 := fmt.Errorf("go wrap: %w", err1)
+			err4 := fmt.Errorf("go plus trace wrap: %w", err2)
+
+			for _, testErr := range []error{err1, err2, err3, err4} {
+				if !test.isError(testErr) {
+					t.Errorf("Is%v failed, err=%#v", test.name, testErr)
+				}
+
+				otherErr := test.instanceForAs
+				if !errors.As(testErr, &otherErr) {
+					t.Errorf("errors.As failed, err=%#v", testErr)
+				}
+			}
+		})
+	}
+}
