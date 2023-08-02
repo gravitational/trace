@@ -18,6 +18,7 @@ package trace
 
 import (
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -70,15 +71,17 @@ func (e *NotFoundError) Is(target error) bool {
 }
 
 // IsNotFound returns whether this error is of NotFoundError type
-func IsNotFound(err error) bool {
-	err = Unwrap(err)
-	_, ok := err.(interface {
+func IsNotFound(e error) bool {
+	type nf interface {
 		IsNotFoundError() bool
-	})
-	if !ok {
-		return os.IsNotExist(err)
 	}
-	return true
+
+	return recursiveIsError(e, func(e error) bool {
+		if _, ok := e.(nf); ok {
+			return true
+		}
+		return os.IsNotExist(e)
+	})
 }
 
 // AlreadyExists returns a new instance of AlreadyExists error
@@ -128,8 +131,11 @@ func IsAlreadyExists(e error) bool {
 	type ae interface {
 		IsAlreadyExistsError() bool
 	}
-	_, ok := Unwrap(e).(ae)
-	return ok
+
+	return recursiveIsError(e, func(e error) bool {
+		_, ok := e.(ae)
+		return ok
+	})
 }
 
 // BadParameter returns a new instance of BadParameterError
@@ -175,8 +181,11 @@ func IsBadParameter(e error) bool {
 	type bp interface {
 		IsBadParameterError() bool
 	}
-	_, ok := Unwrap(e).(bp)
-	return ok
+
+	return recursiveIsError(e, func(e error) bool {
+		_, ok := e.(bp)
+		return ok
+	})
 }
 
 // NotImplemented returns a new instance of NotImplementedError
@@ -222,8 +231,11 @@ func IsNotImplemented(e error) bool {
 	type ni interface {
 		IsNotImplementedError() bool
 	}
-	err, ok := Unwrap(e).(ni)
-	return ok && err.IsNotImplementedError()
+
+	return recursiveIsError(e, func(e error) bool {
+		err, ok := e.(ni)
+		return ok && err.IsNotImplementedError()
+	})
 }
 
 // CompareFailed returns new instance of CompareFailedError
@@ -272,8 +284,11 @@ func IsCompareFailed(e error) bool {
 	type cf interface {
 		IsCompareFailedError() bool
 	}
-	_, ok := Unwrap(e).(cf)
-	return ok
+
+	return recursiveIsError(e, func(e error) bool {
+		_, ok := e.(cf)
+		return ok
+	})
 }
 
 // AccessDenied returns new instance of AccessDeniedError
@@ -317,11 +332,15 @@ func (e *AccessDeniedError) Is(target error) bool {
 }
 
 // IsAccessDenied detects if this error is of AccessDeniedError type
-func IsAccessDenied(err error) bool {
-	_, ok := Unwrap(err).(interface {
+func IsAccessDenied(e error) bool {
+	type ad interface {
 		IsAccessDeniedError() bool
+	}
+
+	return recursiveIsError(e, func(e error) bool {
+		_, ok := e.(ad)
+		return ok
 	})
-	return ok
 }
 
 // ConvertSystemError converts system error to appropriate trace error
@@ -417,11 +436,14 @@ func (c *ConnectionProblemError) Is(target error) bool {
 
 // IsConnectionProblem returns whether this error is of ConnectionProblemError
 func IsConnectionProblem(e error) bool {
-	type ad interface {
+	type cp interface {
 		IsConnectionProblemError() bool
 	}
-	_, ok := Unwrap(e).(ad)
-	return ok
+
+	return recursiveIsError(e, func(e error) bool {
+		_, ok := e.(cp)
+		return ok
+	})
 }
 
 // LimitExceeded returns whether new instance of LimitExceededError
@@ -463,11 +485,14 @@ func (e *LimitExceededError) Is(target error) bool {
 
 // IsLimitExceeded detects if this error is of LimitExceededError
 func IsLimitExceeded(e error) bool {
-	type ad interface {
+	type le interface {
 		IsLimitExceededError() bool
 	}
-	_, ok := Unwrap(e).(ad)
-	return ok
+
+	return recursiveIsError(e, func(e error) bool {
+		_, ok := e.(le)
+		return ok
+	})
 }
 
 // Trust returns new instance of TrustError
@@ -526,8 +551,11 @@ func IsTrustError(e error) bool {
 	type te interface {
 		IsTrustError() bool
 	}
-	_, ok := Unwrap(e).(te)
-	return ok
+
+	return recursiveIsError(e, func(e error) bool {
+		_, ok := e.(te)
+		return ok
+	})
 }
 
 // OAuth2 returns new instance of OAuth2Error
@@ -546,7 +574,7 @@ type OAuth2Error struct {
 	Query   url.Values `json:"query"`
 }
 
-//Error returns log friendly description of an error
+// Error returns log friendly description of an error
 func (o *OAuth2Error) Error() string {
 	return fmt.Sprintf("OAuth2 error code=%v, message=%v", o.Code, o.Message)
 }
@@ -591,8 +619,11 @@ func IsOAuth2(e error) bool {
 	type oe interface {
 		IsOAuth2Error() bool
 	}
-	_, ok := Unwrap(e).(oe)
-	return ok
+
+	return recursiveIsError(e, func(e error) bool {
+		_, ok := e.(oe)
+		return ok
+	})
 }
 
 // IsEOF returns true if the passed error is io.EOF
@@ -652,9 +683,22 @@ func (c *RetryError) Is(target error) bool {
 
 // IsRetryError returns whether this error is of ConnectionProblemError
 func IsRetryError(e error) bool {
-	type ad interface {
+	type re interface {
 		IsRetryError() bool
 	}
-	_, ok := Unwrap(e).(ad)
-	return ok
+
+	return recursiveIsError(e, func(e error) bool {
+		_, ok := e.(re)
+		return ok
+	})
+}
+
+func recursiveIsError(e error, fn func(e error) bool) bool {
+	if e == nil {
+		return false
+	}
+	if fn(e) {
+		return true
+	}
+	return recursiveIsError(errors.Unwrap(e), fn)
 }
