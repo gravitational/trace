@@ -17,7 +17,7 @@ limitations under the License.
 package trace
 
 import (
-	"io/ioutil"
+	"io"
 	"testing"
 
 	"github.com/jonboulle/clockwork"
@@ -35,7 +35,7 @@ func TestHooks(t *testing.T) {
 
 func (s *HooksSuite) TestSafeForConcurrentAccess() {
 	logger := log.New()
-	logger.Out = ioutil.Discard
+	logger.Out = io.Discard
 	entry := logger.WithFields(log.Fields{"foo": "bar"})
 	logger.Hooks.Add(&UDPHook{Clock: clockwork.NewFakeClock()})
 	for i := 0; i < 3; i++ {
