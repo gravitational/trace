@@ -66,7 +66,15 @@ func Wrap(err error, args ...interface{}) Error {
 	return trace
 }
 
-// Unwrap returns the original error the given error wraps
+// Unwrap returns the original error the given error wraps. It is equivalent to
+// removing all trace layers until the original error is exposed.
+//
+// Unwrap works mainly on trace errors, so it won't unwrap errors wrapped via
+// Go's `%w`.
+//
+// Prefer using higher-level comparison methods, such as the various "IsError"
+// functions in this package or [errors.Is] and [errors.As]. If you want a
+// general error-unwrapping mechanism, consider using [errors.Unwrap] instead.
 func Unwrap(err error) error {
 	if err, ok := err.(ErrorWrapper); ok {
 		return err.OrigError()
