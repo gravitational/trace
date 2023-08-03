@@ -81,46 +81,53 @@ func Send(ctx context.Context, err error) error {
 const DebugReportMetadata = "trace-debug-report"
 
 // ToGRPC converts error to GRPC-compatible error
-func ToGRPC(err error) error {
-	if err == nil {
+func ToGRPC(originalErr error) error {
+	if originalErr == nil {
 		return nil
 	}
 
-	if errors.Is(err, io.EOF) {
-		return err
+	// Avoid modifying top-level gRPC errors.
+	if _, ok := status.FromError(originalErr); ok {
+		return originalErr
 	}
 
-	// If err is already a gRPC error, don't modify it.
-	if _, ok := status.FromError(err); ok {
-		return err
+	for e := originalErr; e != nil; {
+		if e == io.EOF {
+			// Keep legacy semantics and return the original error.
+			return originalErr
+		}
+
+		if s, ok := status.FromError(e); ok {
+			return status.Errorf(s.Code(), trace.UserMessage(originalErr))
+		}
+
+		switch e.(type) {
+		case *trace.AccessDeniedError:
+			return status.Errorf(codes.PermissionDenied, trace.UserMessage(originalErr))
+		case *trace.AlreadyExistsError:
+			return status.Errorf(codes.AlreadyExists, trace.UserMessage(originalErr))
+		case *trace.BadParameterError:
+			return status.Errorf(codes.InvalidArgument, trace.UserMessage(originalErr))
+		case *trace.CompareFailedError:
+			return status.Errorf(codes.FailedPrecondition, trace.UserMessage(originalErr))
+		case *trace.ConnectionProblemError:
+			return status.Errorf(codes.Unavailable, trace.UserMessage(originalErr))
+		case *trace.LimitExceededError:
+			return status.Errorf(codes.ResourceExhausted, trace.UserMessage(originalErr))
+		case *trace.NotFoundError:
+			return status.Errorf(codes.NotFound, trace.UserMessage(originalErr))
+		case *trace.NotImplementedError:
+			return status.Errorf(codes.Unimplemented, trace.UserMessage(originalErr))
+		case *trace.OAuth2Error:
+			return status.Errorf(codes.InvalidArgument, trace.UserMessage(originalErr))
+		case *trace.RetryError: // Not mapped.
+		case *trace.TrustError: // Not mapped.
+		}
+
+		e = errors.Unwrap(e)
 	}
 
-	userMessage := trace.UserMessage(err)
-	if trace.IsNotFound(err) {
-		return status.Errorf(codes.NotFound, userMessage)
-	}
-	if trace.IsAlreadyExists(err) {
-		return status.Errorf(codes.AlreadyExists, userMessage)
-	}
-	if trace.IsAccessDenied(err) {
-		return status.Errorf(codes.PermissionDenied, userMessage)
-	}
-	if trace.IsCompareFailed(err) {
-		return status.Errorf(codes.FailedPrecondition, userMessage)
-	}
-	if trace.IsBadParameter(err) || trace.IsOAuth2(err) {
-		return status.Errorf(codes.InvalidArgument, userMessage)
-	}
-	if trace.IsLimitExceeded(err) {
-		return status.Errorf(codes.ResourceExhausted, userMessage)
-	}
-	if trace.IsConnectionProblem(err) {
-		return status.Errorf(codes.Unavailable, userMessage)
-	}
-	if trace.IsNotImplemented(err) {
-		return status.Errorf(codes.Unimplemented, userMessage)
-	}
-	return status.Errorf(codes.Unknown, userMessage)
+	return status.Errorf(codes.Unknown, trace.UserMessage(originalErr))
 }
 
 // FromGRPC converts error from GRPC error back to trace.Error
