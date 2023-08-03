@@ -229,7 +229,7 @@ func TestBadParameterError_Is(t *testing.T) {
 	}
 }
 
-func TestIsNotImplementedError_Is(t *testing.T) {
+func TestNotImplementedError_Is(t *testing.T) {
 	errs := []error{
 		NotImplemented("one"),
 		NotImplemented("two"),
@@ -399,5 +399,91 @@ func TestRetryError_Is(t *testing.T) {
 				require.NotErrorIs(t, errs[j], errs[i])
 			}
 		}
+	}
+}
+
+func TestGoErrorWrap_IsError_allTypes(t *testing.T) {
+	tests := []struct {
+		name     string
+		instance error            // eg, BadParameter("foo")
+		isError  func(error) bool // eg, IsBadParameter
+	}{
+		{
+			name:     "BadParameter",
+			instance: BadParameter("message"),
+			isError:  IsBadParameter,
+		},
+
+		{
+			name:     "NotFound",
+			instance: NotFound("message"),
+			isError:  IsNotFound,
+		},
+		{
+			name:     "AlreadyExists",
+			instance: AlreadyExists("message"),
+			isError:  IsAlreadyExists,
+		},
+		{
+			name:     "NotImplemented",
+			instance: NotImplemented("message"),
+			isError:  IsNotImplemented,
+		},
+		{
+			name:     "CompareFailed",
+			instance: CompareFailed("message"),
+			isError:  IsCompareFailed,
+		},
+		{
+			name:     "AccessDenied",
+			instance: AccessDenied("message"),
+			isError:  IsAccessDenied,
+		},
+		{
+			name:     "ConnectionProblem",
+			instance: ConnectionProblem(errors.New("underlying error"), "message"),
+			isError:  IsConnectionProblem,
+		},
+		{
+			name:     "LimitExceeded",
+			instance: LimitExceeded("message"),
+			isError:  IsLimitExceeded,
+		},
+		{
+			name:     "TrustError",
+			instance: Trust(errors.New("underlying error"), "message"),
+			isError:  IsTrustError,
+		},
+		{
+			name:     "OAuth2",
+			instance: OAuth2("code", "message", nil /* query */),
+			isError:  IsOAuth2,
+		},
+		{
+			name:     "RetryError",
+			instance: Retry(errors.New("underyling error"), "message"),
+			isError:  IsRetryError,
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err1 := test.instance
+			err2 := Wrap(err1)
+			err3 := fmt.Errorf("go wrap: %w", err1)
+			err4 := fmt.Errorf("go plus trace wrap: %w", err2)
+			errUnrelated := fmt.Errorf("go wrap: %w", Wrap(errors.New("unrelated")))
+
+			// Verify positive matches.
+			for _, testErr := range []error{err1, err2, err3, err4} {
+				if !test.isError(testErr) {
+					t.Errorf("Is%v failed, err=%#v", test.name, testErr)
+				}
+			}
+
+			// Verify that an unrelated error won't match.
+			if test.isError(errUnrelated) {
+				t.Errorf("Is%v returned true for an unrelated error, err=%#v", test.name, errUnrelated)
+			}
+		})
 	}
 }

@@ -18,21 +18,22 @@ limitations under the License.
 //
 // Example server that sends the GRPC error and attaches metadata:
 //
-//  func (s *server) Echo(ctx context.Context, message *gw.StringMessage) (*gw.StringMessage, error) {
-//      trace.SetDebug(true) // to tell trace to start attaching metadata
-//      // Send sends metadata via grpc header and converts error to GRPC compatible one
-//      return nil, trail.Send(ctx, trace.AccessDenied("missing authorization"))
-//  }
+//	func (s *server) Echo(ctx context.Context, message *gw.StringMessage) (*gw.StringMessage, error) {
+//		trace.SetDebug(true) // to tell trace to start attaching metadata
+//		// Send sends metadata via grpc header and converts error to GRPC compatible one
+//		return nil, trail.Send(ctx, trace.AccessDenied("missing authorization"))
+//	}
 //
 // Example client reading error and trace debug info:
 //
-//  var header metadata.MD
+//	var header metadata.MD
 //	r, err := c.Echo(context.Background(), &gw.StringMessage{Value: message}, grpc.Header(&header))
 //	if err != nil {
-//      // FromGRPC reads error, converts it back to trace error and attaches debug metadata
-//      // like stack trace of the error origin back to the error
+//		// FromGRPC reads error, converts it back to trace error and attaches debug metadata
+//		// like stack trace of the error origin back to the error
 //		err = trail.FromGRPC(err, header)
-///     // this line will log original trace of the error
+//
+//		// this line will log original trace of the error
 //		log.Errorf("error saying echo: %v", trace.DebugReport(err))
 //		return
 //	}
@@ -96,30 +97,30 @@ func ToGRPC(err error) error {
 
 	userMessage := trace.UserMessage(err)
 	if trace.IsNotFound(err) {
-		return grpc.Errorf(codes.NotFound, userMessage)
+		return status.Errorf(codes.NotFound, userMessage)
 	}
 	if trace.IsAlreadyExists(err) {
-		return grpc.Errorf(codes.AlreadyExists, userMessage)
+		return status.Errorf(codes.AlreadyExists, userMessage)
 	}
 	if trace.IsAccessDenied(err) {
-		return grpc.Errorf(codes.PermissionDenied, userMessage)
+		return status.Errorf(codes.PermissionDenied, userMessage)
 	}
 	if trace.IsCompareFailed(err) {
-		return grpc.Errorf(codes.FailedPrecondition, userMessage)
+		return status.Errorf(codes.FailedPrecondition, userMessage)
 	}
 	if trace.IsBadParameter(err) || trace.IsOAuth2(err) {
-		return grpc.Errorf(codes.InvalidArgument, userMessage)
+		return status.Errorf(codes.InvalidArgument, userMessage)
 	}
 	if trace.IsLimitExceeded(err) {
-		return grpc.Errorf(codes.ResourceExhausted, userMessage)
+		return status.Errorf(codes.ResourceExhausted, userMessage)
 	}
 	if trace.IsConnectionProblem(err) {
-		return grpc.Errorf(codes.Unavailable, userMessage)
+		return status.Errorf(codes.Unavailable, userMessage)
 	}
 	if trace.IsNotImplemented(err) {
-		return grpc.Errorf(codes.Unimplemented, userMessage)
+		return status.Errorf(codes.Unimplemented, userMessage)
 	}
-	return grpc.Errorf(codes.Unknown, userMessage)
+	return status.Errorf(codes.Unknown, userMessage)
 }
 
 // FromGRPC converts error from GRPC error back to trace.Error
@@ -128,8 +129,11 @@ func FromGRPC(err error, args ...interface{}) error {
 	if err == nil {
 		return nil
 	}
-	code := grpc.Code(err)
-	message := grpc.ErrorDesc(err)
+
+	statusErr := status.Convert(err)
+	code := statusErr.Code()
+	message := statusErr.Message()
+
 	var e error
 	switch code {
 	case codes.OK:

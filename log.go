@@ -168,14 +168,14 @@ type JSONFormatter struct {
 func (j *JSONFormatter) Format(e *log.Entry) ([]byte, error) {
 	if cursor := findFrame(); cursor != nil {
 		t := internal.GetTracesFromCursor(*cursor)
-		new := e.WithFields(log.Fields{
+		newEntry := e.WithFields(log.Fields{
 			FileField:     t.Loc(),
 			FunctionField: t.FuncName(),
 		})
-		new.Time = e.Time
-		new.Level = e.Level
-		new.Message = e.Message
-		e = new
+		newEntry.Time = e.Time
+		newEntry.Level = e.Level
+		newEntry.Message = e.Message
+		e = newEntry
 	}
 	return j.JSONFormatter.Format(e)
 }
