@@ -471,10 +471,11 @@ func TestGoErrorWrap_IsError_allTypes(t *testing.T) {
 			err2 := Wrap(err1)
 			err3 := fmt.Errorf("go wrap: %w", err1)
 			err4 := fmt.Errorf("go plus trace wrap: %w", err2)
+			err5 := NewAggregate(errors.New("some other error"), err4)
 			errUnrelated := fmt.Errorf("go wrap: %w", Wrap(errors.New("unrelated")))
 
 			// Verify positive matches.
-			for _, testErr := range []error{err1, err2, err3, err4} {
+			for _, testErr := range []error{err1, err2, err3, err4, err5} {
 				if !test.isError(testErr) {
 					t.Errorf("Is%v failed, err=%#v", test.name, testErr)
 				}
