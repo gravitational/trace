@@ -427,8 +427,7 @@ func WithFields(err Error, fields map[string]interface{}) *TraceErr {
 // NewAggregate creates a new aggregate instance from the specified
 // list of errors
 func NewAggregate(errs ...error) error {
-	// filter out possible nil values
-	var nonNils []error
+	nonNils := make([]error, 0, len(errs))
 	for _, err := range errs {
 		if err != nil {
 			nonNils = append(nonNils, err)
