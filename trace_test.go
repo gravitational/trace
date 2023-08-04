@@ -797,3 +797,20 @@ func TestIsAggregate(t *testing.T) {
 		})
 	}
 }
+
+func TestAggregate_IsError(t *testing.T) {
+	err1 := BadParameter("bad")
+	err2 := NotFound("not found")
+	err3 := errors.New("some other error")
+	errAggregate := NewAggregate(err1, err2, err3)
+	errUnrelated := errors.New("unrelated error")
+
+	assert.True(t, IsBadParameter(errAggregate), "IsBadParameter aggregate mismatch")
+	assert.True(t, IsNotFound(errAggregate), "IsNotFound aggregate mismatch")
+	assert.False(t, IsConnectionProblem(errAggregate), "IsConnectionProblem aggregate mismatch")
+
+	assert.ErrorIs(t, errAggregate, err1)
+	assert.ErrorIs(t, errAggregate, err2)
+	assert.ErrorIs(t, errAggregate, err3)
+	assert.NotErrorIs(t, errAggregate, errUnrelated)
+}
