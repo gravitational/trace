@@ -40,10 +40,12 @@ limitations under the License.
 package trail
 
 import (
+	"container/list"
 	"encoding/base64"
 	"encoding/json"
 	"errors"
 	"io"
+	"os"
 
 	"github.com/gravitational/trace"
 	"github.com/gravitational/trace/internal"
@@ -91,43 +93,67 @@ func ToGRPC(originalErr error) error {
 		return originalErr
 	}
 
-	for e := originalErr; e != nil; {
+	errFromCode := func(code codes.Code) error {
+		return status.Errorf(code, trace.UserMessage(originalErr))
+	}
+
+	l := list.New()
+	l.PushBack(originalErr)
+	for l.Len() > 0 {
+		elem := l.Front()
+		l.Remove(elem)
+		e := elem.Value.(error)
+
 		if e == io.EOF {
 			// Keep legacy semantics and return the original error.
 			return originalErr
 		}
 
 		if s, ok := status.FromError(e); ok {
-			return status.Errorf(s.Code(), trace.UserMessage(originalErr))
+			return errFromCode(s.Code())
 		}
 
-		switch e.(type) {
+		// Duplicate check from trace.IsNotFound.
+		if os.IsNotExist(e) {
+			return errFromCode(codes.NotFound)
+		}
+
+		switch e := e.(type) {
 		case *trace.AccessDeniedError:
-			return status.Errorf(codes.PermissionDenied, trace.UserMessage(originalErr))
+			return errFromCode(codes.PermissionDenied)
 		case *trace.AlreadyExistsError:
-			return status.Errorf(codes.AlreadyExists, trace.UserMessage(originalErr))
+			return errFromCode(codes.AlreadyExists)
 		case *trace.BadParameterError:
-			return status.Errorf(codes.InvalidArgument, trace.UserMessage(originalErr))
+			return errFromCode(codes.InvalidArgument)
 		case *trace.CompareFailedError:
-			return status.Errorf(codes.FailedPrecondition, trace.UserMessage(originalErr))
+			return errFromCode(codes.FailedPrecondition)
 		case *trace.ConnectionProblemError:
-			return status.Errorf(codes.Unavailable, trace.UserMessage(originalErr))
+			return errFromCode(codes.Unavailable)
 		case *trace.LimitExceededError:
-			return status.Errorf(codes.ResourceExhausted, trace.UserMessage(originalErr))
+			return errFromCode(codes.ResourceExhausted)
 		case *trace.NotFoundError:
-			return status.Errorf(codes.NotFound, trace.UserMessage(originalErr))
+			return errFromCode(codes.NotFound)
 		case *trace.NotImplementedError:
-			return status.Errorf(codes.Unimplemented, trace.UserMessage(originalErr))
+			return errFromCode(codes.Unimplemented)
 		case *trace.OAuth2Error:
-			return status.Errorf(codes.InvalidArgument, trace.UserMessage(originalErr))
+			return errFromCode(codes.InvalidArgument)
 		case *trace.RetryError: // Not mapped.
 		case *trace.TrustError: // Not mapped.
+
+		case trace.Aggregate: // "Unwrap" aggregate.
+			for _, err := range e.Errors() {
+				if err != nil {
+					l.PushBack(err)
+				}
+			}
 		}
 
-		e = errors.Unwrap(e)
+		if err := errors.Unwrap(e); err != nil {
+			l.PushBack(err)
+		}
 	}
 
-	return status.Errorf(codes.Unknown, trace.UserMessage(originalErr))
+	return errFromCode(codes.Unknown)
 }
 
 // FromGRPC converts error from GRPC error back to trace.Error

@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"os"
 	"strings"
 	"testing"
 
@@ -34,58 +35,78 @@ import (
 // TestConversion makes sure we convert all trace supported errors
 // to and back from GRPC codes
 func TestConversion(t *testing.T) {
-	testCases := []struct {
-		Error     error
-		Message   string
-		Predicate func(error) bool
+	tests := []struct {
+		name string
+		err  error
+		fn   func(error) bool
 	}{
 		{
-			Error: io.EOF,
-			Predicate: func(err error) bool {
-				return errors.Is(err, io.EOF)
-			},
+			name: "io.EOF",
+			err:  io.EOF,
+			fn:   func(err error) bool { return errors.Is(err, io.EOF) },
 		},
 		{
-			Error:     trace.AccessDenied("access denied"),
-			Predicate: trace.IsAccessDenied,
+			name: "os.ErrNotExist",
+			err:  os.ErrNotExist,
+			fn:   trace.IsNotFound,
 		},
 		{
-			Error:     trace.AlreadyExists("already exists"),
-			Predicate: trace.IsAlreadyExists,
+			name: "AccessDenied",
+			err:  trace.AccessDenied("access denied"),
+			fn:   trace.IsAccessDenied,
 		},
 		{
-			Error:     trace.BadParameter("bad parameter"),
-			Predicate: trace.IsBadParameter,
+			name: "AlreadyExists",
+			err:  trace.AlreadyExists("already exists"),
+			fn:   trace.IsAlreadyExists,
 		},
 		{
-			Error:     trace.CompareFailed("compare failed"),
-			Predicate: trace.IsCompareFailed,
+			name: "BadParameter",
+			err:  trace.BadParameter("bad parameter"),
+			fn:   trace.IsBadParameter,
 		},
 		{
-			Error:     trace.ConnectionProblem(nil, "problem"),
-			Predicate: trace.IsConnectionProblem,
+			name: "CompareFailed",
+			err:  trace.CompareFailed("compare failed"),
+			fn:   trace.IsCompareFailed,
 		},
 		{
-			Error:     trace.LimitExceeded("exceeded"),
-			Predicate: trace.IsLimitExceeded,
+			name: "ConnectionProblem",
+			err:  trace.ConnectionProblem(nil, "problem"),
+			fn:   trace.IsConnectionProblem,
 		},
 		{
-			Error:     trace.NotFound("not found"),
-			Predicate: trace.IsNotFound,
+			name: "LimitExceeded",
+			err:  trace.LimitExceeded("exceeded"),
+			fn:   trace.IsLimitExceeded,
 		},
 		{
-			Error:     trace.NotImplemented("not implemented"),
-			Predicate: trace.IsNotImplemented,
+			name: "NotFound",
+			err:  trace.NotFound("not found"),
+			fn:   trace.IsNotFound,
+		},
+		{
+			name: "NotImplemented",
+			err:  trace.NotImplemented("not implemented"),
+			fn:   trace.IsNotImplemented,
+		},
+		{
+			name: "Aggregated BadParameter",
+			err:  trace.NewAggregate(trace.BadParameter("bad parameter")),
+			fn:   trace.IsBadParameter,
 		},
 	}
 
-	for i, tc := range testCases {
-		grpcError := ToGRPC(tc.Error)
-		assert.Equal(t, tc.Error.Error(), status.Convert(grpcError).Message(), "test case %v", i+1)
-		out := FromGRPC(grpcError)
-		assert.True(t, tc.Predicate(out), "test case %v", i+1)
-		assert.Regexp(t, ".*trail_test.go.*", line(trace.DebugReport(out)))
-		assert.NotRegexp(t, ".*trail.go.*", line(trace.DebugReport(out)))
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			grpcError := ToGRPC(test.err)
+			assert.Equal(t, test.err.Error(), status.Convert(grpcError).Message(), "Error message mismatch")
+
+			out := FromGRPC(grpcError)
+			assert.True(t, test.fn(out), "Predicate failed")
+			assert.Regexp(t, ".*trail_test.go.*", line(trace.DebugReport(out)))
+			assert.NotRegexp(t, ".*trail.go.*", line(trace.DebugReport(out)))
+		})
 	}
 }
 
