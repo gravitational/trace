@@ -26,14 +26,11 @@ import (
 	"os"
 )
 
-// traceDepth is the depth to be used by error constructors.
-const traceDepth = 2
-
 // NotFound returns new instance of not found error
 func NotFound(message string, args ...interface{}) Error {
 	return newTrace(&NotFoundError{
 		Message: fmt.Sprintf(message, args...),
-	}, traceDepth)
+	})
 }
 
 // NotFoundError indicates that object has not been found
@@ -91,7 +88,7 @@ func IsNotFound(e error) bool {
 func AlreadyExists(message string, args ...interface{}) Error {
 	return newTrace(&AlreadyExistsError{
 		Message: fmt.Sprintf(message, args...),
-	}, traceDepth)
+	})
 }
 
 // AlreadyExistsError indicates that there's a duplicate object that already
@@ -139,7 +136,7 @@ func IsAlreadyExists(e error) bool {
 func BadParameter(message string, args ...interface{}) Error {
 	return newTrace(&BadParameterError{
 		Message: fmt.Sprintf(message, args...),
-	}, traceDepth)
+	})
 }
 
 // BadParameterError indicates that something is wrong with passed
@@ -184,7 +181,7 @@ func IsBadParameter(e error) bool {
 func NotImplemented(message string, args ...interface{}) Error {
 	return newTrace(&NotImplementedError{
 		Message: fmt.Sprintf(message, args...),
-	}, traceDepth)
+	})
 }
 
 // NotImplementedError defines an error condition to describe the result
@@ -229,7 +226,7 @@ func IsNotImplemented(e error) bool {
 func CompareFailed(message string, args ...interface{}) Error {
 	return newTrace(&CompareFailedError{
 		Message: fmt.Sprintf(message, args...),
-	}, traceDepth)
+	})
 }
 
 // CompareFailedError indicates a failed comparison (e.g. bad password or hash)
@@ -277,7 +274,7 @@ func IsCompareFailed(e error) bool {
 func AccessDenied(message string, args ...interface{}) Error {
 	return newTrace(&AccessDeniedError{
 		Message: fmt.Sprintf(message, args...),
-	}, traceDepth)
+	})
 }
 
 // AccessDeniedError indicates denied access
@@ -328,35 +325,35 @@ func ConvertSystemError(err error) error {
 	if os.IsExist(innerError) {
 		return newTrace(&AlreadyExistsError{
 			Message: innerError.Error(),
-		}, traceDepth)
+		})
 	}
 	if os.IsNotExist(innerError) {
 		return newTrace(&NotFoundError{
 			Message: innerError.Error(),
-		}, traceDepth)
+		})
 	}
 	if os.IsPermission(innerError) {
 		return newTrace(&AccessDeniedError{
 			Message: innerError.Error(),
-		}, traceDepth)
+		})
 	}
 	switch realErr := innerError.(type) {
 	case *net.OpError:
 		return newTrace(&ConnectionProblemError{
 			Err: realErr,
-		}, traceDepth)
+		})
 	case *os.PathError:
 		message := fmt.Sprintf("failed to execute command %v error:  %v", realErr.Path, realErr.Err)
 		return newTrace(&AccessDeniedError{
 			Message: message,
-		}, traceDepth)
+		})
 	case x509.SystemRootsError, x509.UnknownAuthorityError:
-		return newTrace(&TrustError{Err: innerError}, traceDepth)
+		return newTrace(&TrustError{Err: innerError})
 	}
 	if _, ok := innerError.(net.Error); ok {
 		return newTrace(&ConnectionProblemError{
 			Err: innerError,
-		}, traceDepth)
+		})
 	}
 	return err
 }
@@ -366,7 +363,7 @@ func ConnectionProblem(err error, message string, args ...interface{}) Error {
 	return newTrace(&ConnectionProblemError{
 		Message: fmt.Sprintf(message, args...),
 		Err:     err,
-	}, traceDepth)
+	})
 }
 
 // ConnectionProblemError indicates a network related problem
@@ -422,7 +419,7 @@ func IsConnectionProblem(e error) bool {
 func LimitExceeded(message string, args ...interface{}) Error {
 	return newTrace(&LimitExceededError{
 		Message: fmt.Sprintf(message, args...),
-	}, traceDepth)
+	})
 }
 
 // LimitExceededError indicates rate limit or connection limit problem
@@ -467,7 +464,7 @@ func Trust(err error, message string, args ...interface{}) Error {
 	return newTrace(&TrustError{
 		Message: fmt.Sprintf(message, args...),
 		Err:     err,
-	}, traceDepth)
+	})
 }
 
 // TrustError indicates trust-related validation error (e.g. untrusted cert)
@@ -525,7 +522,7 @@ func OAuth2(code, message string, query url.Values) Error {
 		Code:    code,
 		Message: message,
 		Query:   query,
-	}, traceDepth)
+	})
 }
 
 // OAuth2Error defined an error used in OpenID Connect Flow (OIDC)
@@ -592,7 +589,7 @@ func Retry(err error, message string, args ...interface{}) Error {
 	return newTrace(&RetryError{
 		Message: fmt.Sprintf(message, args...),
 		Err:     err,
-	}, traceDepth)
+	})
 }
 
 // RetryError indicates a transient error type
