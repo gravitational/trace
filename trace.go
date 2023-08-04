@@ -475,14 +475,14 @@ type aggregate []error
 
 // Error implements the error interface
 func (r aggregate) Error() string {
-	if len(r) == 0 {
-		return ""
+	buf := &strings.Builder{}
+	for i, e := range r {
+		if i > 0 {
+			buf.WriteString(", ")
+		}
+		buf.WriteString(e.Error())
 	}
-	output := r[0].Error()
-	for i := 1; i < len(r); i++ {
-		output = fmt.Sprintf("%v, %v", output, r[i])
-	}
-	return output
+	return buf.String()
 }
 
 // Is implements the `Is` interface, by iterating through each error in the
