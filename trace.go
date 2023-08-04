@@ -509,7 +509,9 @@ func (r aggregate) As(t interface{}) bool {
 
 // Errors obtains the list of errors this aggregate combines
 func (r aggregate) Errors() []error {
-	return []error(r)
+	cp := make([]error, len(r))
+	copy(cp, r)
+	return cp
 }
 
 // IsAggregate returns true if `err` contains an [Aggregate] error in its
