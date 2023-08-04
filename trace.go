@@ -202,6 +202,8 @@ func Fatalf(format string, args ...interface{}) error {
 }
 
 func newTrace(err error) *TraceErr {
+	// newTrace does not call newTraceWithDepth so the depth value is consistent
+	// between both methods.
 	const depth = 2
 	traces := internal.CaptureTraces(depth)
 	return &TraceErr{Err: err, Traces: traces}
