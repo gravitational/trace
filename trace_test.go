@@ -731,24 +731,27 @@ func TestStdlibCompat(t *testing.T) {
 	}
 }
 
-// TestStdLibCompat_Aggregate runs through a scenario which ensures that
-// Aggregate behaves well with errors.Is/errors.As in cases with trace
-// wrapped errors and stdlib errors
-func TestStdlibCompat_Aggregate(t *testing.T) {
-	randomErr := fmt.Errorf("random")
+// TestAggregate_StdLibCompat runs through a scenario which ensures that
+// Aggregate behaves well with errors.Is/errors.As in cases with trace wrapped
+// errors and stdlib errors
+func TestAggregate_StdlibCompat(t *testing.T) {
+	randomErr := errors.New("random")
 	bpMsg := "bad param"
-	badParamErr := BadParameter(bpMsg)
-	fooErr := fmt.Errorf("foo")
+	bpErr := BadParameter(bpMsg)
+	fooErr := errors.New("foo")
 
-	agg := Wrap(NewAggregate(Wrap(badParamErr), fooErr))
+	agg := Wrap(NewAggregate(Wrap(bpErr), fooErr))
 
-	require.ErrorIs(t, agg, badParamErr)
-	require.ErrorIs(t, agg, fooErr)
-	require.NotErrorIs(t, agg, randomErr)
+	assert.ErrorIs(t, agg, bpErr)
+	assert.ErrorIs(t, agg, fooErr)
+	assert.NotErrorIs(t, agg, randomErr)
 
 	var badParamErrTarget *BadParameterError
-	require.ErrorAs(t, agg, &badParamErrTarget)
-	require.Equal(t, bpMsg, badParamErrTarget.Message)
+	assert.ErrorAs(t, agg, &badParamErrTarget)
+	assert.Equal(t, bpMsg, badParamErrTarget.Message, "BadParameter message mismatch")
+
+	var notFoundTarget *NotFoundError
+	assert.False(t, errors.As(agg, &notFoundTarget), "Aggregate does not contain a NotFoundError")
 }
 
 func TestIsAggregate(t *testing.T) {
