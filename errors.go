@@ -72,25 +72,28 @@ func (e *NotFoundError) Is(target error) bool {
 
 // IsNotFound returns true if `e` contains a [NotFoundError] in its chain.
 func IsNotFound(e error) bool {
-	for e != nil {
-		switch e := e.(type) {
-		case *NotFoundError:
-			return true
+	if e == nil {
+		return false
+	}
+	if os.IsNotExist(e) {
+		return true
+	}
 
-		// Aggregates and other errors.
-		case interface{ As(interface{}) bool }:
-			nfe := &NotFoundError{}
-			if e.As(&nfe) {
+	switch e := e.(type) {
+	case *NotFoundError:
+		return true
+
+	case interface{ Unwrap() error }:
+		return IsNotFound(e.Unwrap())
+
+	case interface{ Unwrap() []error }:
+		for _, err := range e.Unwrap() {
+			if IsNotFound(err) {
 				return true
 			}
 		}
-
-		if os.IsNotExist(e) {
-			return true
-		}
-
-		e = errors.Unwrap(e)
 	}
+
 	return false
 }
 

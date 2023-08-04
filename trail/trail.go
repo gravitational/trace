@@ -43,7 +43,6 @@ import (
 	"container/list"
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"io"
 	"os"
 
@@ -140,16 +139,17 @@ func ToGRPC(originalErr error) error {
 		case *trace.RetryError: // Not mapped.
 		case *trace.TrustError: // Not mapped.
 
-		case trace.Aggregate: // "Unwrap" aggregate.
-			for _, err := range e.Errors() {
+		case interface{ Unwrap() error }:
+			if err := e.Unwrap(); err != nil {
+				l.PushBack(err)
+			}
+
+		case interface{ Unwrap() []error }:
+			for _, err := range e.Unwrap() {
 				if err != nil {
 					l.PushBack(err)
 				}
 			}
-		}
-
-		if err := errors.Unwrap(e); err != nil {
-			l.PushBack(err)
 		}
 	}
 
