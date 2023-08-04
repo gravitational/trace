@@ -29,91 +29,83 @@ import (
 	"testing"
 
 	log "github.com/sirupsen/logrus"
+	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
-	"github.com/stretchr/testify/suite"
 )
 
-func TestTrace(t *testing.T) {
-	suite.Run(t, new(TraceSuite))
+func TestEmpty(t *testing.T) {
+	assert.Equal(t, "", DebugReport(nil))
+	assert.Equal(t, "", UserMessage(nil))
+	assert.Equal(t, "", UserMessageWithFields(nil))
+	assert.Equal(t, map[string]interface{}{}, GetFields(nil))
 }
 
-type TraceSuite struct {
-	suite.Suite
-}
-
-func (s *TraceSuite) TestEmpty() {
-	s.Equal("", DebugReport(nil))
-	s.Equal("", UserMessage(nil))
-	s.Equal("", UserMessageWithFields(nil))
-	s.Equal(map[string]interface{}{}, GetFields(nil))
-}
-
-func (s *TraceSuite) TestWrap() {
+func TestWrap(t *testing.T) {
 	testErr := &testError{Param: "param"}
 	err := Wrap(Wrap(testErr))
 
-	s.Regexp(".*trace_test.go.*", line(DebugReport(err)))
-	s.NotRegexp(".*trace.go.*", line(DebugReport(err)))
-	s.NotRegexp(".*trace_test.go.*", line(UserMessage(err)))
-	s.Regexp(".*param.*", line(UserMessage(err)))
+	assert.Regexp(t, ".*trace_test.go.*", line(DebugReport(err)))
+	assert.NotRegexp(t, ".*trace.go.*", line(DebugReport(err)))
+	assert.NotRegexp(t, ".*trace_test.go.*", line(UserMessage(err)))
+	assert.Regexp(t, ".*param.*", line(UserMessage(err)))
 }
 
-func (s *TraceSuite) TestOrigError() {
+func TestOrigError(t *testing.T) {
 	testErr := fmt.Errorf("some error")
 	err := Wrap(Wrap(testErr))
 
-	s.Equal(testErr, err.OrigError())
+	assert.Equal(t, testErr, err.OrigError())
 }
 
-func (s *TraceSuite) TestIsEOF() {
-	s.True(IsEOF(io.EOF))
-	s.True(IsEOF(Wrap(io.EOF)))
+func TestIsEOF(t *testing.T) {
+	assert.True(t, IsEOF(io.EOF))
+	assert.True(t, IsEOF(Wrap(io.EOF)))
 }
 
-func (s *TraceSuite) TestWrapUserMessage() {
+func TestWrapUserMessage(t *testing.T) {
 	testErr := fmt.Errorf("description")
 
 	err := Wrap(testErr, "user message")
-	s.Regexp(".*trace_test.go.*", line(DebugReport(err)))
-	s.NotRegexp(".*trace.go.*", line(DebugReport(err)))
-	s.Equal("user message\tdescription", line(UserMessage(err)))
+	assert.Regexp(t, ".*trace_test.go.*", line(DebugReport(err)))
+	assert.NotRegexp(t, ".*trace.go.*", line(DebugReport(err)))
+	assert.Equal(t, "user message\tdescription", line(UserMessage(err)))
 
 	err = Wrap(err, "user message 2")
-	s.Equal("user message 2\tuser message\t\tdescription", line(UserMessage(err)))
+	assert.Equal(t, "user message 2\tuser message\t\tdescription", line(UserMessage(err)))
 }
 
-func (s *TraceSuite) TestWrapWithMessage() {
+func TestWrapWithMessage(t *testing.T) {
 	testErr := fmt.Errorf("description")
 	err := WrapWithMessage(testErr, "user message")
-	s.Equal("user message\tdescription", line(UserMessage(err)))
-	s.Regexp(".*trace_test.go.*", line(DebugReport(err)))
-	s.NotRegexp(".*trace.go.*", line(DebugReport(err)))
+	assert.Equal(t, "user message\tdescription", line(UserMessage(err)))
+	assert.Regexp(t, ".*trace_test.go.*", line(DebugReport(err)))
+	assert.NotRegexp(t, ".*trace.go.*", line(DebugReport(err)))
 }
 
-func (s *TraceSuite) TestUserMessageWithFields() {
+func TestUserMessageWithFields(t *testing.T) {
 	testErr := fmt.Errorf("description")
-	s.Equal(testErr.Error(), UserMessageWithFields(testErr))
+	assert.Equal(t, testErr.Error(), UserMessageWithFields(testErr))
 
 	err := Wrap(testErr, "user message")
-	s.Equal("user message\tdescription", line(UserMessageWithFields(err)))
+	assert.Equal(t, "user message\tdescription", line(UserMessageWithFields(err)))
 
 	err = WithField(err, "test_key", "test_value")
-	s.Equal("test_key=\"test_value\" user message\tdescription", line(UserMessageWithFields(err)))
+	assert.Equal(t, "test_key=\"test_value\" user message\tdescription", line(UserMessageWithFields(err)))
 }
 
-func (s *TraceSuite) TestGetFields() {
+func TestGetFields(t *testing.T) {
 	testErr := fmt.Errorf("description")
-	s.Equal(map[string]interface{}{}, GetFields(testErr))
+	assert.Equal(t, map[string]interface{}{}, GetFields(testErr))
 
 	fields := map[string]interface{}{
 		"test_key": "test_value",
 	}
 	err := WithFields(Wrap(testErr), fields)
-	s.Equal(fields, GetFields(err))
+	assert.Equal(t, fields, GetFields(err))
 
 	// ensure that you can get fields from a proxyError
 	e := roundtripError(err)
-	s.Equal(fields, GetFields(e))
+	assert.Equal(t, fields, GetFields(e))
 }
 
 func roundtripError(err error) error {
@@ -124,18 +116,18 @@ func roundtripError(err error) error {
 	return outErr
 }
 
-func (s *TraceSuite) TestWrapNil() {
+func TestWrapNil(t *testing.T) {
 	err1 := Wrap(nil, "message: %v", "extra")
-	s.Nil(err1)
+	assert.Nil(t, err1)
 
 	var err2 error
 	err2 = nil
 
 	err3 := Wrap(err2)
-	s.Nil(err3)
+	assert.Nil(t, err3)
 
 	err4 := Wrap(err3)
-	s.Nil(err4)
+	assert.Nil(t, err4)
 }
 
 func TestRaceErrorWrap(t *testing.T) {
@@ -173,11 +165,11 @@ func TestRaceErrorWrap(t *testing.T) {
 	wg.Wait()
 }
 
-func (s *TraceSuite) TestWrapStdlibErrors() {
-	s.True(IsNotFound(os.ErrNotExist))
+func TestWrapStdlibErrors(t *testing.T) {
+	assert.True(t, IsNotFound(os.ErrNotExist))
 }
 
-func (s *TraceSuite) TestLogFormatter() {
+func TestLogFormatter(t *testing.T) {
 	for _, f := range []log.Formatter{&TextFormatter{}, &JSONFormatter{}} {
 		log.SetFormatter(f)
 
@@ -185,12 +177,12 @@ func (s *TraceSuite) TestLogFormatter() {
 		var buf bytes.Buffer
 		log.SetOutput(&buf)
 		log.Infof("hello")
-		s.Regexp(".*trace_test.go.*", line(buf.String()))
+		assert.Regexp(t, ".*trace_test.go.*", line(buf.String()))
 
 		// check case with embedded Infof
 		buf.Reset()
 		log.WithFields(log.Fields{"a": "b"}).Infof("hello")
-		s.Regexp(".*trace_test.go.*", line(buf.String()))
+		assert.Regexp(t, ".*trace_test.go.*", line(buf.String()))
 	}
 }
 
@@ -200,7 +192,7 @@ func (p panicker) String() string {
 	panic(p)
 }
 
-func (s *TraceSuite) TestTextFormatter() {
+func TestTextFormatter(t *testing.T) {
 	padding := 6
 	f := &TextFormatter{
 		DisableTimestamp: true,
@@ -296,11 +288,11 @@ func (s *TraceSuite) TestTextFormatter() {
 		buf := &bytes.Buffer{}
 		log.SetOutput(buf)
 		tc.log()
-		s.Regexp(tc.match, line(buf.String()), "test case %v %v, expected match: %v", i+1, tc.comment, tc.match)
+		assert.Regexp(t, tc.match, line(buf.String()), "test case %v %v, expected match: %v", i+1, tc.comment, tc.match)
 	}
 }
 
-func (s *TraceSuite) TestTextFormatterWithColors() {
+func TestTextFormatterWithColors(t *testing.T) {
 	padding := 6
 	f := &TextFormatter{
 		DisableTimestamp: true,
@@ -368,11 +360,11 @@ func (s *TraceSuite) TestTextFormatterWithColors() {
 		log.SetOutput(buf)
 		log.SetLevel(log.DebugLevel)
 		tc.log()
-		s.Regexpf(tc.match, line(buf.String()), "test case %v %v, expected match: %v", i+1, tc.comment, tc.match)
+		assert.Regexpf(t, tc.match, line(buf.String()), "test case %v %v, expected match: %v", i+1, tc.comment, tc.match)
 	}
 }
 
-func (s *TraceSuite) TestGenericErrors() {
+func TestGenericErrors(t *testing.T) {
 	testCases := []struct {
 		Err        Error
 		Predicate  func(error) bool
@@ -436,53 +428,53 @@ func (s *TraceSuite) TestGenericErrors() {
 		var traceErr *TraceErr
 		var ok bool
 		if traceErr, ok = err.(*TraceErr); !ok {
-			s.Fail("Expected error to be of type *TraceErr")
+			t.Fatalf("Expected error to be of type *TraceErr: %#v", err)
 		}
 
-		s.NotEmpty(traceErr.Traces, testCase.comment)
-		s.Regexp(".*.trace_test\\.go.*", line(DebugReport(err)), testCase.comment)
-		s.NotRegexp(".*.errors\\.go.*", line(DebugReport(err)), testCase.comment)
-		s.NotRegexp(".*.trace\\.go.*", line(DebugReport(err)), testCase.comment)
-		s.True(testCase.Predicate(err), testCase.comment)
+		assert.NotEmpty(t, traceErr.Traces, testCase.comment)
+		assert.Regexp(t, ".*.trace_test\\.go.*", line(DebugReport(err)), testCase.comment)
+		assert.NotRegexp(t, ".*.errors\\.go.*", line(DebugReport(err)), testCase.comment)
+		assert.NotRegexp(t, ".*.trace\\.go.*", line(DebugReport(err)), testCase.comment)
+		assert.True(t, testCase.Predicate(err), testCase.comment)
 
 		w := newTestWriter()
 		WriteError(w, err)
 
 		outErr := ReadError(w.StatusCode, w.Body)
 		if _, ok := outErr.(proxyError); !ok {
-			s.Fail("Expected error to be of type proxyError")
+			t.Fatalf("Expected error to be of type proxyError: %#v", outErr)
 		}
-		s.True(testCase.Predicate(outErr), testCase.comment)
+		assert.True(t, testCase.Predicate(outErr), testCase.comment)
 
 		SetDebug(false)
 		w = newTestWriter()
 		WriteError(w, err)
 		outErr = ReadError(w.StatusCode, w.Body)
-		s.True(testCase.Predicate(outErr), testCase.comment)
+		assert.True(t, testCase.Predicate(outErr), testCase.comment)
 	}
 }
 
 // Make sure we write some output produced by standard errors
-func (s *TraceSuite) TestWriteExternalErrors() {
+func TestWriteExternalErrors(t *testing.T) {
 	err := Wrap(fmt.Errorf("snap!"))
 
 	SetDebug(true)
 	w := newTestWriter()
 	WriteError(w, err)
 	extErr := ReadError(w.StatusCode, w.Body)
-	s.Equal(http.StatusInternalServerError, w.StatusCode)
-	s.Regexp(".*.snap.*", strings.Replace(string(w.Body), "\n", "", -1))
-	s.Require().NotNil(extErr)
-	s.EqualError(err, extErr.Error())
+	assert.Equal(t, http.StatusInternalServerError, w.StatusCode)
+	assert.Regexp(t, ".*.snap.*", strings.Replace(string(w.Body), "\n", "", -1))
+	require.NotNil(t, extErr)
+	assert.EqualError(t, err, extErr.Error())
 
 	SetDebug(false)
 	w = newTestWriter()
 	WriteError(w, err)
 	extErr = ReadError(w.StatusCode, w.Body)
-	s.Equal(http.StatusInternalServerError, w.StatusCode)
-	s.Regexp(".*.snap.*", strings.Replace(string(w.Body), "\n", "", -1))
-	s.Require().NotNil(extErr)
-	s.EqualError(err, extErr.Error())
+	assert.Equal(t, http.StatusInternalServerError, w.StatusCode)
+	assert.Regexp(t, ".*.snap.*", strings.Replace(string(w.Body), "\n", "", -1))
+	require.NotNil(t, extErr)
+	assert.EqualError(t, err, extErr.Error())
 }
 
 type netError struct{}
@@ -491,51 +483,51 @@ func (e *netError) Error() string   { return "net" }
 func (e *netError) Timeout() bool   { return true }
 func (e *netError) Temporary() bool { return true }
 
-func (s *TraceSuite) TestConvert() {
+func TestConvert(t *testing.T) {
 	err := ConvertSystemError(&netError{})
-	s.True(IsConnectionProblem(err), "failed to detect network error")
+	assert.True(t, IsConnectionProblem(err), "failed to detect network error")
 
-	dir := s.T().TempDir()
+	dir := t.TempDir()
 	err = os.Mkdir(dir, 0o770)
 	err = ConvertSystemError(err)
-	s.True(IsAlreadyExists(err), "expected AlreadyExists error, got %T", err)
+	assert.True(t, IsAlreadyExists(err), "expected AlreadyExists error, got %T", err)
 }
 
-func (s *TraceSuite) TestAggregates() {
+func TestAggregates(t *testing.T) {
 	err1 := Errorf("failed one")
 	err2 := Errorf("failed two")
 
 	err := NewAggregate(err1, err2)
-	s.True(IsAggregate(err))
+	assert.True(t, IsAggregate(err))
 
 	agg := Unwrap(err).(Aggregate)
-	s.Equal([]error{err1, err2}, agg.Errors())
-	s.Equal("failed one, failed two", err.Error())
+	assert.Equal(t, []error{err1, err2}, agg.Errors())
+	assert.Equal(t, "failed one, failed two", err.Error())
 }
 
-func (s *TraceSuite) TestErrorf() {
+func TestErrorf(t *testing.T) {
 	err := Errorf("error")
-	s.Regexp(".*.trace_test.go.*", line(DebugReport(err)))
-	s.NotRegexp(".*.Fields.*", line(DebugReport(err)))
-	s.Equal([]string(nil), err.(*TraceErr).Messages)
+	assert.Regexp(t, ".*.trace_test.go.*", line(DebugReport(err)))
+	assert.NotRegexp(t, ".*.Fields.*", line(DebugReport(err)))
+	assert.Equal(t, []string(nil), err.(*TraceErr).Messages)
 }
 
-func (s *TraceSuite) TestWithField() {
+func TestWithField(t *testing.T) {
 	err := WithField(Wrap(Errorf("error")), "testfield", true)
-	s.Regexp(".*.testfield.*", line(DebugReport(err)))
+	assert.Regexp(t, ".*.testfield.*", line(DebugReport(err)))
 }
 
-func (s *TraceSuite) TestWithFields() {
+func TestWithFields(t *testing.T) {
 	err := WithFields(Wrap(Errorf("error")), map[string]interface{}{
 		"testfield1": true,
 		"testfield2": "value2",
 	})
-	s.Regexp(".*.Fields.*", line(DebugReport(err)))
-	s.Regexp(".*.testfield1: true.*", line(DebugReport(err)))
-	s.Regexp(".*.testfield2: value2.*", line(DebugReport(err)))
+	assert.Regexp(t, ".*.Fields.*", line(DebugReport(err)))
+	assert.Regexp(t, ".*.testfield1: true.*", line(DebugReport(err)))
+	assert.Regexp(t, ".*.testfield2: value2.*", line(DebugReport(err)))
 }
 
-func (s *TraceSuite) TestAggregateConvertsToCommonErrors() {
+func TestAggregateConvertsToCommonErrors(t *testing.T) {
 	testCases := []struct {
 		Err                error
 		Predicate          func(error) bool
@@ -570,33 +562,33 @@ func (s *TraceSuite) TestAggregateConvertsToCommonErrors() {
 		SetDebug(true)
 		err := testCase.Err
 
-		s.Regexp(".*.trace_test.go.*", line(DebugReport(err)), testCase.comment)
-		s.True(testCase.Predicate(err), testCase.comment)
+		assert.Regexp(t, ".*.trace_test.go.*", line(DebugReport(err)), testCase.comment)
+		assert.True(t, testCase.Predicate(err), testCase.comment)
 
 		w := newTestWriter()
 		WriteError(w, err)
 		outErr := ReadError(w.StatusCode, w.Body)
-		s.True(testCase.RoundtripPredicate(outErr), testCase.comment)
+		assert.True(t, testCase.RoundtripPredicate(outErr), testCase.comment)
 
 		SetDebug(false)
 		w = newTestWriter()
 		WriteError(w, err)
 		outErr = ReadError(w.StatusCode, w.Body)
-		s.True(testCase.RoundtripPredicate(outErr), testCase.comment)
+		assert.True(t, testCase.RoundtripPredicate(outErr), testCase.comment)
 	}
 }
 
-func (s *TraceSuite) TestAggregateThrowAwayNils() {
+func TestAggregateThrowAwayNils(t *testing.T) {
 	err := NewAggregate(fmt.Errorf("error1"), nil, fmt.Errorf("error2"))
-	s.Require().NotNil(err)
-	s.NotRegexp(".*nil.*", err.Error())
+	require.NotNil(t, err)
+	assert.NotRegexp(t, ".*nil.*", err.Error())
 }
 
-func (s *TraceSuite) TestAggregateAllNils() {
-	s.Nil(NewAggregate(nil, nil, nil))
+func TestAggregateAllNils(t *testing.T) {
+	assert.Nil(t, NewAggregate(nil, nil, nil))
 }
 
-func (s *TraceSuite) TestAggregateFromChannel() {
+func TestAggregateFromChannel(t *testing.T) {
 	errCh := make(chan error, 3)
 	errCh <- fmt.Errorf("Snap!")
 	errCh <- fmt.Errorf("BAM")
@@ -604,13 +596,13 @@ func (s *TraceSuite) TestAggregateFromChannel() {
 	close(errCh)
 
 	err := NewAggregateFromChannel(errCh, context.Background())
-	s.Require().NotNil(err)
-	s.Regexp(".*Snap!.*", err.Error())
-	s.Regexp(".*BAM.*", err.Error())
-	s.Regexp(".*omg.*", err.Error())
+	require.NotNil(t, err)
+	assert.Regexp(t, ".*Snap!.*", err.Error())
+	assert.Regexp(t, ".*BAM.*", err.Error())
+	assert.Regexp(t, ".*omg.*", err.Error())
 }
 
-func (s *TraceSuite) TestAggregateFromChannelCancel() {
+func TestAggregateFromChannelCancel(t *testing.T) {
 	ctx, cancel := context.WithCancel(context.Background())
 	errCh := make(chan error)
 	outCh := make(chan error)
@@ -625,10 +617,10 @@ func (s *TraceSuite) TestAggregateFromChannelCancel() {
 	cancel()
 
 	err := <-outCh
-	s.Error(err)
+	assert.Error(t, err)
 }
 
-func (s *TraceSuite) TestCompositeErrorsCanProperlyUnwrap() {
+func TestCompositeErrorsCanProperlyUnwrap(t *testing.T) {
 	testCases := []struct {
 		err            error
 		message        string
@@ -652,9 +644,9 @@ func (s *TraceSuite) TestCompositeErrorsCanProperlyUnwrap() {
 	}
 	var wrapper ErrorWrapper
 	for _, tt := range testCases {
-		s.Equal(tt.message, tt.err.Error())
-		s.Implements(&wrapper, Unwrap(tt.err))
-		s.Equal(tt.wrappedMessage, Unwrap(tt.err).(ErrorWrapper).OrigError().Error())
+		assert.Equal(t, tt.message, tt.err.Error())
+		assert.Implements(t, &wrapper, Unwrap(tt.err))
+		assert.Equal(t, tt.wrappedMessage, Unwrap(tt.err).(ErrorWrapper).OrigError().Error())
 	}
 }
 
@@ -696,7 +688,7 @@ func (tw *testWriter) WriteHeader(code int) {
 }
 
 func line(s string) string {
-	return strings.Replace(s, "\n", "", -1)
+	return strings.ReplaceAll(s, "\n", "")
 }
 
 func TestStdlibCompat(t *testing.T) {

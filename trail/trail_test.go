@@ -18,30 +18,22 @@ package trail
 
 import (
 	"errors"
+	"fmt"
 	"io"
 	"strings"
 	"testing"
 
 	"github.com/gravitational/trace"
+	"github.com/stretchr/testify/assert"
 
-	"github.com/stretchr/testify/suite"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/metadata"
 	"google.golang.org/grpc/status"
 )
 
-func TestTrail(t *testing.T) {
-	suite.Run(t, new(TrailSuite))
-}
-
-type TrailSuite struct {
-	suite.Suite
-}
-
 // TestConversion makes sure we convert all trace supported errors
 // to and back from GRPC codes
-func (s *TrailSuite) TestConversion() {
+func TestConversion(t *testing.T) {
 	testCases := []struct {
 		Error     error
 		Message   string
@@ -58,12 +50,8 @@ func (s *TrailSuite) TestConversion() {
 			Predicate: trace.IsAccessDenied,
 		},
 		{
-			Error:     trace.ConnectionProblem(nil, "problem"),
-			Predicate: trace.IsConnectionProblem,
-		},
-		{
-			Error:     trace.NotFound("not found"),
-			Predicate: trace.IsNotFound,
+			Error:     trace.AlreadyExists("already exists"),
+			Predicate: trace.IsAlreadyExists,
 		},
 		{
 			Error:     trace.BadParameter("bad parameter"),
@@ -74,12 +62,16 @@ func (s *TrailSuite) TestConversion() {
 			Predicate: trace.IsCompareFailed,
 		},
 		{
-			Error:     trace.AccessDenied("denied"),
-			Predicate: trace.IsAccessDenied,
+			Error:     trace.ConnectionProblem(nil, "problem"),
+			Predicate: trace.IsConnectionProblem,
 		},
 		{
 			Error:     trace.LimitExceeded("exceeded"),
 			Predicate: trace.IsLimitExceeded,
+		},
+		{
+			Error:     trace.NotFound("not found"),
+			Predicate: trace.IsNotFound,
 		},
 		{
 			Error:     trace.NotImplemented("not implemented"),
@@ -89,38 +81,38 @@ func (s *TrailSuite) TestConversion() {
 
 	for i, tc := range testCases {
 		grpcError := ToGRPC(tc.Error)
-		s.Equal(tc.Error.Error(), grpc.ErrorDesc(grpcError), "test case %v", i+1)
+		assert.Equal(t, tc.Error.Error(), status.Convert(grpcError).Message(), "test case %v", i+1)
 		out := FromGRPC(grpcError)
-		s.True(tc.Predicate(out), "test case %v", i+1)
-		s.Regexp(".*trail_test.go.*", line(trace.DebugReport(out)))
-		s.NotRegexp(".*trail.go.*", line(trace.DebugReport(out)))
+		assert.True(t, tc.Predicate(out), "test case %v", i+1)
+		assert.Regexp(t, ".*trail_test.go.*", line(trace.DebugReport(out)))
+		assert.NotRegexp(t, ".*trail.go.*", line(trace.DebugReport(out)))
 	}
 }
 
 // TestNil makes sure conversions of nil to and from GRPC are no-op
-func (s *TrailSuite) TestNil() {
+func TestNil(t *testing.T) {
 	out := FromGRPC(ToGRPC(nil))
-	s.Nil(out)
+	assert.Nil(t, out)
 }
 
 // TestFromEOF makes sure that non-grpc error such as io.EOF is preserved well.
-func (s *TrailSuite) TestFromEOF() {
+func TestFromEOF(t *testing.T) {
 	out := FromGRPC(trace.Wrap(io.EOF))
-	s.True(trace.IsEOF(out))
+	assert.True(t, trace.IsEOF(out))
 }
 
 // TestTraces makes sure we pass traces via metadata and can decode it back
-func (s *TrailSuite) TestTraces() {
+func TestTraces(t *testing.T) {
 	err := trace.BadParameter("param")
 	meta := metadata.New(nil)
 	SetDebugInfo(err, meta)
 	err2 := FromGRPC(ToGRPC(err), meta)
-	s.Regexp(".*trail_test.go.*", line(trace.DebugReport(err)))
-	s.Regexp(".*trail_test.go.*", line(trace.DebugReport(err2)))
+	assert.Regexp(t, ".*trail_test.go.*", line(trace.DebugReport(err)))
+	assert.Regexp(t, ".*trail_test.go.*", line(trace.DebugReport(err2)))
 }
 
 func line(s string) string {
-	return strings.Replace(s, "\n", "", -1)
+	return strings.ReplaceAll(s, "\n", "")
 }
 
 func TestToGRPCKeepCode(t *testing.T) {
@@ -132,5 +124,45 @@ func TestToGRPCKeepCode(t *testing.T) {
 	err = FromGRPC(err)
 	if !trace.IsAccessDenied(err) {
 		t.Errorf("after FromGRPC, trace.IsAccessDenied is false, want true, error: %v", err)
+	}
+}
+
+func TestToGRPC_statusError(t *testing.T) {
+	err1 := status.Errorf(codes.NotFound, "not found")
+	err2 := fmt.Errorf("go wrap: %w", trace.Wrap(err1))
+
+	tests := []struct {
+		name string
+		err  error
+		want error
+	}{
+		{
+			name: "unwrapped status",
+			err:  err1,
+			want: err1, // Exact same error.
+		},
+		{
+			name: "wrapped status",
+			err:  err2,
+			want: status.Errorf(codes.NotFound, err2.Error()),
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			err := ToGRPC(test.err)
+
+			got, ok := status.FromError(err)
+			if !ok {
+				t.Fatalf("Failed to convert `got` to a status.Status: %#v", err)
+			}
+			want, ok := status.FromError(test.want)
+			if !ok {
+				t.Fatalf("Failed to convert `want` to a status.Status: %#v", err)
+			}
+
+			if got.Code() != want.Code() || got.Message() != want.Message() {
+				t.Errorf("ToGRPC = %#v, want %#v", got, test.want)
+			}
+		})
 	}
 }

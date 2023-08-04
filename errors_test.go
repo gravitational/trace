@@ -461,7 +461,7 @@ func TestGoErrorWrap_IsError_allTypes(t *testing.T) {
 		},
 		{
 			name:     "RetryError",
-			instance: Retry(errors.New("underyling error"), "message"),
+			instance: Retry(errors.New("underlying error"), "message"),
 			isError:  IsRetryError,
 		},
 	}
