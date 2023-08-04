@@ -750,3 +750,47 @@ func TestStdlibCompat_Aggregate(t *testing.T) {
 	require.ErrorAs(t, agg, &badParamErrTarget)
 	require.Equal(t, bpMsg, badParamErrTarget.Message)
 }
+
+func TestIsAggregate(t *testing.T) {
+	err1 := errors.New("foo")
+	err2 := errors.New("bar")
+	errAggregate := Wrap(NewAggregate(err1, err2))
+	errGo := fmt.Errorf("go wrap: %w", errAggregate)
+
+	tests := []struct {
+		name string
+		err  error
+		want bool
+	}{
+		{
+			name: "plain Go error is not aggregate",
+			err:  err1,
+		},
+		{
+			name: "Aggregate returns true",
+			err:  errAggregate,
+			want: true,
+		},
+		{
+			name: "Aggregate unwrapped returns true",
+			err:  Unwrap(errAggregate),
+			want: true,
+		},
+		{
+			name: "Aggregate Go-wrapped returns true",
+			err:  errGo,
+			want: true,
+		},
+		{
+			name: "unrelated wrapped error is not aggregate",
+			err:  Wrap(err1),
+		},
+	}
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			if got := IsAggregate(test.err); got != test.want {
+				t.Errorf("IsAggregate = %v, want %v", got, test.want)
+			}
+		})
+	}
+}

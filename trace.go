@@ -513,10 +513,11 @@ func (r aggregate) Errors() []error {
 	return []error(r)
 }
 
-// IsAggregate returns whether this error of Aggregate error type
+// IsAggregate returns true if `err` contains an [Aggregate] error in its
+// chain.
 func IsAggregate(err error) bool {
-	_, ok := Unwrap(err).(Aggregate)
-	return ok
+	var other Aggregate
+	return errors.As(err, &other)
 }
 
 // wrapProxy wraps the specified error as a new error trace
