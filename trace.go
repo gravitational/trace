@@ -493,6 +493,30 @@ func (r aggregate) Error() string {
 	return buf.String()
 }
 
+// Is implements the `Is` interface, by iterating through each error in the
+// aggregate and invoking `errors.Is`.
+// Required for Go versions < 1.20 (newer releases support "Unwrap() []error").
+func (r aggregate) Is(t error) bool {
+	for _, err := range r {
+		if errors.Is(err, t) {
+			return true
+		}
+	}
+	return false
+}
+
+// As implements the `As` interface, by iterating through each error in the
+// aggregate and invoking `errors.As`.
+// Required for Go versions < 1.20 (newer releases support "Unwrap() []error").
+func (r aggregate) As(t interface{}) bool {
+	for _, err := range r {
+		if errors.As(err, t) {
+			return true
+		}
+	}
+	return false
+}
+
 // Errors obtains the list of errors this aggregate combines
 func (r aggregate) Errors() []error {
 	cp := make([]error, len(r))
