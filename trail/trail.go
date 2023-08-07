@@ -40,7 +40,6 @@ limitations under the License.
 package trail
 
 import (
-	"container/list"
 	"encoding/base64"
 	"encoding/json"
 	"io"
@@ -92,68 +91,58 @@ func ToGRPC(originalErr error) error {
 		return originalErr
 	}
 
-	errFromCode := func(code codes.Code) error {
-		return status.Errorf(code, trace.UserMessage(originalErr))
-	}
-
-	l := list.New()
-	l.PushBack(originalErr)
-	for l.Len() > 0 {
-		elem := l.Front()
-		l.Remove(elem)
-		e := elem.Value.(error)
-
-		if e == io.EOF {
+	code := codes.Unknown
+	returnOriginal := false
+	internal.TraverseErr(originalErr, func(err error) (ok bool) {
+		if err == io.EOF {
 			// Keep legacy semantics and return the original error.
-			return originalErr
+			returnOriginal = true
+			return true
 		}
 
-		if s, ok := status.FromError(e); ok {
-			return errFromCode(s.Code())
+		if s, ok := status.FromError(err); ok {
+			code = s.Code()
+			return true
 		}
 
 		// Duplicate check from trace.IsNotFound.
-		if os.IsNotExist(e) {
-			return errFromCode(codes.NotFound)
+		if os.IsNotExist(err) {
+			code = codes.NotFound
+			return true
 		}
 
-		switch e := e.(type) {
+		ok = true // Assume match
+		switch err.(type) {
 		case *trace.AccessDeniedError:
-			return errFromCode(codes.PermissionDenied)
+			code = codes.PermissionDenied
 		case *trace.AlreadyExistsError:
-			return errFromCode(codes.AlreadyExists)
+			code = codes.AlreadyExists
 		case *trace.BadParameterError:
-			return errFromCode(codes.InvalidArgument)
+			code = codes.InvalidArgument
 		case *trace.CompareFailedError:
-			return errFromCode(codes.FailedPrecondition)
+			code = codes.FailedPrecondition
 		case *trace.ConnectionProblemError:
-			return errFromCode(codes.Unavailable)
+			code = codes.Unavailable
 		case *trace.LimitExceededError:
-			return errFromCode(codes.ResourceExhausted)
+			code = codes.ResourceExhausted
 		case *trace.NotFoundError:
-			return errFromCode(codes.NotFound)
+			code = codes.NotFound
 		case *trace.NotImplementedError:
-			return errFromCode(codes.Unimplemented)
+			code = codes.Unimplemented
 		case *trace.OAuth2Error:
-			return errFromCode(codes.InvalidArgument)
-		case *trace.RetryError: // Not mapped.
-		case *trace.TrustError: // Not mapped.
-
-		case interface{ Unwrap() error }:
-			if err := e.Unwrap(); err != nil {
-				l.PushBack(err)
-			}
-
-		case interface{ Unwrap() []error }:
-			for _, err := range e.Unwrap() {
-				if err != nil {
-					l.PushBack(err)
-				}
-			}
+			code = codes.InvalidArgument
+		// *trace.RetryError not mapped.
+		// *trace.TrustError not mapped.
+		default:
+			ok = false
 		}
+		return ok
+	})
+	if returnOriginal {
+		return originalErr
 	}
 
-	return errFromCode(codes.Unknown)
+	return status.Error(code, trace.UserMessage(originalErr))
 }
 
 // FromGRPC converts error from GRPC error back to trace.Error

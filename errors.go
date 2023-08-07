@@ -24,6 +24,8 @@ import (
 	"net"
 	"net/url"
 	"os"
+
+	"github.com/gravitational/trace/internal"
 )
 
 // NotFound returns new instance of not found error
@@ -71,30 +73,15 @@ func (e *NotFoundError) Is(target error) bool {
 }
 
 // IsNotFound returns true if `e` contains a [NotFoundError] in its chain.
-func IsNotFound(e error) bool {
-	if e == nil {
-		return false
-	}
-	if os.IsNotExist(e) {
-		return true
-	}
-
-	switch e := e.(type) {
-	case *NotFoundError:
-		return true
-
-	case interface{ Unwrap() error }:
-		return IsNotFound(e.Unwrap())
-
-	case interface{ Unwrap() []error }:
-		for _, err := range e.Unwrap() {
-			if IsNotFound(err) {
-				return true
-			}
+func IsNotFound(err error) bool {
+	return internal.TraverseErr(err, func(err error) (ok bool) {
+		if os.IsNotExist(err) {
+			return true
 		}
-	}
 
-	return false
+		_, ok = err.(*NotFoundError)
+		return ok
+	})
 }
 
 // AlreadyExists returns a new instance of AlreadyExists error
