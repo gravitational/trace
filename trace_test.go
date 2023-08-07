@@ -747,11 +747,11 @@ func TestAggregate_StdlibCompat(t *testing.T) {
 	assert.NotErrorIs(t, agg, randomErr)
 
 	var badParamErrTarget *BadParameterError
-	assert.ErrorAs(t, agg, &badParamErrTarget)
+	require.ErrorAs(t, agg, &badParamErrTarget)
 	assert.Equal(t, bpMsg, badParamErrTarget.Message, "BadParameter message mismatch")
 
 	var notFoundTarget *NotFoundError
-	assert.False(t, errors.As(agg, &notFoundTarget), "Aggregate does not contain a NotFoundError")
+	require.False(t, errors.As(agg, &notFoundTarget), "Aggregate does not contain a NotFoundError")
 }
 
 func TestIsAggregate(t *testing.T) {

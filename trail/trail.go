@@ -42,8 +42,8 @@ package trail
 import (
 	"encoding/base64"
 	"encoding/json"
-	"errors"
 	"io"
+	"os"
 
 	"github.com/gravitational/trace"
 	"github.com/gravitational/trace/internal"
@@ -91,43 +91,58 @@ func ToGRPC(originalErr error) error {
 		return originalErr
 	}
 
-	for e := originalErr; e != nil; {
-		if e == io.EOF {
+	code := codes.Unknown
+	returnOriginal := false
+	internal.TraverseErr(originalErr, func(err error) (ok bool) {
+		if err == io.EOF {
 			// Keep legacy semantics and return the original error.
-			return originalErr
+			returnOriginal = true
+			return true
 		}
 
-		if s, ok := status.FromError(e); ok {
-			return status.Errorf(s.Code(), trace.UserMessage(originalErr))
+		if s, ok := status.FromError(err); ok {
+			code = s.Code()
+			return true
 		}
 
-		switch e.(type) {
+		// Duplicate check from trace.IsNotFound.
+		if os.IsNotExist(err) {
+			code = codes.NotFound
+			return true
+		}
+
+		ok = true // Assume match
+		switch err.(type) {
 		case *trace.AccessDeniedError:
-			return status.Errorf(codes.PermissionDenied, trace.UserMessage(originalErr))
+			code = codes.PermissionDenied
 		case *trace.AlreadyExistsError:
-			return status.Errorf(codes.AlreadyExists, trace.UserMessage(originalErr))
+			code = codes.AlreadyExists
 		case *trace.BadParameterError:
-			return status.Errorf(codes.InvalidArgument, trace.UserMessage(originalErr))
+			code = codes.InvalidArgument
 		case *trace.CompareFailedError:
-			return status.Errorf(codes.FailedPrecondition, trace.UserMessage(originalErr))
+			code = codes.FailedPrecondition
 		case *trace.ConnectionProblemError:
-			return status.Errorf(codes.Unavailable, trace.UserMessage(originalErr))
+			code = codes.Unavailable
 		case *trace.LimitExceededError:
-			return status.Errorf(codes.ResourceExhausted, trace.UserMessage(originalErr))
+			code = codes.ResourceExhausted
 		case *trace.NotFoundError:
-			return status.Errorf(codes.NotFound, trace.UserMessage(originalErr))
+			code = codes.NotFound
 		case *trace.NotImplementedError:
-			return status.Errorf(codes.Unimplemented, trace.UserMessage(originalErr))
+			code = codes.Unimplemented
 		case *trace.OAuth2Error:
-			return status.Errorf(codes.InvalidArgument, trace.UserMessage(originalErr))
-		case *trace.RetryError: // Not mapped.
-		case *trace.TrustError: // Not mapped.
+			code = codes.InvalidArgument
+		// *trace.RetryError not mapped.
+		// *trace.TrustError not mapped.
+		default:
+			ok = false
 		}
-
-		e = errors.Unwrap(e)
+		return ok
+	})
+	if returnOriginal {
+		return originalErr
 	}
 
-	return status.Errorf(codes.Unknown, trace.UserMessage(originalErr))
+	return status.Error(code, trace.UserMessage(originalErr))
 }
 
 // FromGRPC converts error from GRPC error back to trace.Error
