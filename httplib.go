@@ -4,6 +4,8 @@ import (
 	"encoding/json"
 	"fmt"
 	"net/http"
+
+	"github.com/codingllama/semerr"
 )
 
 // WriteError sets up HTTP error response and writes it to writer w
@@ -29,28 +31,16 @@ func WriteError(w http.ResponseWriter, err error) {
 
 // ErrorToCode returns an appropriate HTTP status code based on the provided error type
 func ErrorToCode(err error) int {
-	switch {
-	case IsAggregate(err):
-		return http.StatusGatewayTimeout
-	case IsNotFound(err):
-		return http.StatusNotFound
-	case IsBadParameter(err) || IsOAuth2(err):
-		return http.StatusBadRequest
-	case IsNotImplemented(err):
-		return http.StatusNotImplemented
-	case IsCompareFailed(err):
-		return http.StatusPreconditionFailed
-	case IsAccessDenied(err):
-		return http.StatusForbidden
-	case IsAlreadyExists(err):
-		return http.StatusConflict
-	case IsLimitExceeded(err):
-		return http.StatusTooManyRequests
-	case IsConnectionProblem(err):
-		return http.StatusGatewayTimeout
-	default:
-		return http.StatusInternalServerError
+	status, ok := semerr.HTTPStatus(err)
+	if ok {
+		return status
 	}
+
+	if IsAggregate(err) {
+		return http.StatusGatewayTimeout
+	}
+
+	return status // 500/Internal.
 }
 
 // ReadError converts http error to internal error type

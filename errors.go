@@ -22,11 +22,13 @@ import (
 	"fmt"
 	"io"
 	"net"
+	"net/http"
 	"net/url"
 	"os"
 
 	"github.com/codingllama/semerr"
 	"github.com/gravitational/trace/internal"
+	"google.golang.org/grpc/codes"
 )
 
 // NotFound returns new instance of not found error
@@ -240,10 +242,16 @@ func CompareFailed(message string, args ...interface{}) Error {
 
 // CompareFailedError indicates a failed comparison (e.g. bad password or hash)
 type CompareFailedError struct {
-	semerr.FailedPreconditionError `json:"-"`
-
 	// Message is user-friendly error message
 	Message string `json:"message"`
+}
+
+func (CompareFailedError) GRPCCode() semerr.Code {
+	return semerr.Code(codes.FailedPrecondition)
+}
+
+func (CompareFailedError) HTTPStatus() int {
+	return http.StatusPreconditionFailed
 }
 
 // Error is debug - friendly message
@@ -381,10 +389,16 @@ func ConnectionProblem(err error, message string, args ...interface{}) Error {
 
 // ConnectionProblemError indicates a network related problem
 type ConnectionProblemError struct {
-	semerr.UnavailableError `json:"-"`
-
 	Message string `json:"message"`
 	Err     error  `json:"-"`
+}
+
+func (ConnectionProblemError) GRPCCode() semerr.Code {
+	return semerr.Code(codes.Unavailable)
+}
+
+func (ConnectionProblemError) HTTPStatus() int {
+	return http.StatusGatewayTimeout
 }
 
 // Error is debug - friendly error message
