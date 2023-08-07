@@ -48,6 +48,7 @@ import (
 	"github.com/gravitational/trace"
 	"github.com/gravitational/trace/internal"
 
+	"github.com/codingllama/semerr"
 	"golang.org/x/net/context"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -86,11 +87,17 @@ func ToGRPC(originalErr error) error {
 		return nil
 	}
 
-	// Avoid modifying top-level gRPC errors.
+	// Match semantic error.
+	if code, ok := semerr.GRPCCode(originalErr); ok {
+		return status.Error(codes.Code(code), trace.UserMessage(originalErr))
+	}
+
+	// Match immediate status error.
 	if _, ok := status.FromError(originalErr); ok {
 		return originalErr
 	}
 
+	// Traverse in search of specific errors in the chain.
 	code := codes.Unknown
 	returnOriginal := false
 	internal.TraverseErr(originalErr, func(err error) (ok bool) {
@@ -111,32 +118,7 @@ func ToGRPC(originalErr error) error {
 			return true
 		}
 
-		ok = true // Assume match
-		switch err.(type) {
-		case *trace.AccessDeniedError:
-			code = codes.PermissionDenied
-		case *trace.AlreadyExistsError:
-			code = codes.AlreadyExists
-		case *trace.BadParameterError:
-			code = codes.InvalidArgument
-		case *trace.CompareFailedError:
-			code = codes.FailedPrecondition
-		case *trace.ConnectionProblemError:
-			code = codes.Unavailable
-		case *trace.LimitExceededError:
-			code = codes.ResourceExhausted
-		case *trace.NotFoundError:
-			code = codes.NotFound
-		case *trace.NotImplementedError:
-			code = codes.Unimplemented
-		case *trace.OAuth2Error:
-			code = codes.InvalidArgument
-		// *trace.RetryError not mapped.
-		// *trace.TrustError not mapped.
-		default:
-			ok = false
-		}
-		return ok
+		return false
 	})
 	if returnOriginal {
 		return originalErr

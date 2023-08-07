@@ -25,6 +25,7 @@ import (
 	"net/url"
 	"os"
 
+	"github.com/codingllama/semerr"
 	"github.com/gravitational/trace/internal"
 )
 
@@ -37,6 +38,8 @@ func NotFound(message string, args ...interface{}) Error {
 
 // NotFoundError indicates that object has not been found
 type NotFoundError struct {
+	semerr.NotFoundError `json:"-"`
+
 	Message string `json:"message"`
 }
 
@@ -94,6 +97,8 @@ func AlreadyExists(message string, args ...interface{}) Error {
 // AlreadyExistsError indicates that there's a duplicate object that already
 // exists in the storage/system
 type AlreadyExistsError struct {
+	semerr.AlreadyExistsError `json:"-"`
+
 	Message string `json:"message"`
 }
 
@@ -142,6 +147,8 @@ func BadParameter(message string, args ...interface{}) Error {
 // BadParameterError indicates that something is wrong with passed
 // parameter to API method
 type BadParameterError struct {
+	semerr.InvalidArgumentError `json:"-"`
+
 	Message string `json:"message"`
 }
 
@@ -187,6 +194,8 @@ func NotImplemented(message string, args ...interface{}) Error {
 // NotImplementedError defines an error condition to describe the result
 // of a call to an unimplemented API
 type NotImplementedError struct {
+	semerr.UnimplementedError `json:"-"`
+
 	Message string `json:"message"`
 }
 
@@ -231,6 +240,8 @@ func CompareFailed(message string, args ...interface{}) Error {
 
 // CompareFailedError indicates a failed comparison (e.g. bad password or hash)
 type CompareFailedError struct {
+	semerr.FailedPreconditionError `json:"-"`
+
 	// Message is user-friendly error message
 	Message string `json:"message"`
 }
@@ -279,6 +290,8 @@ func AccessDenied(message string, args ...interface{}) Error {
 
 // AccessDeniedError indicates denied access
 type AccessDeniedError struct {
+	semerr.PermissionDeniedError `json:"-"`
+
 	Message string `json:"message"`
 }
 
@@ -368,6 +381,8 @@ func ConnectionProblem(err error, message string, args ...interface{}) Error {
 
 // ConnectionProblemError indicates a network related problem
 type ConnectionProblemError struct {
+	semerr.UnavailableError `json:"-"`
+
 	Message string `json:"message"`
 	Err     error  `json:"-"`
 }
@@ -424,6 +439,8 @@ func LimitExceeded(message string, args ...interface{}) Error {
 
 // LimitExceededError indicates rate limit or connection limit problem
 type LimitExceededError struct {
+	semerr.ResourceExhaustedError `json:"-"`
+
 	Message string `json:"message"`
 }
 
@@ -527,6 +544,8 @@ func OAuth2(code, message string, query url.Values) Error {
 
 // OAuth2Error defined an error used in OpenID Connect Flow (OIDC)
 type OAuth2Error struct {
+	semerr.InvalidArgumentError `json:"-"`
+
 	Code    string     `json:"code"`
 	Message string     `json:"message"`
 	Query   url.Values `json:"query"`
