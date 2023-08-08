@@ -28,7 +28,6 @@ import (
 
 	"github.com/codingllama/semerr"
 	"github.com/gravitational/trace/internal"
-	"google.golang.org/grpc/codes"
 )
 
 // NotFound returns new instance of not found error
@@ -79,14 +78,11 @@ func (e *NotFoundError) Is(target error) bool {
 
 // IsNotFound returns true if `e` contains a [NotFoundError] in its chain.
 func IsNotFound(err error) bool {
-	return internal.TraverseErr(err, func(err error) (ok bool) {
-		if os.IsNotExist(err) {
-			return true
-		}
+	if errors.As(err, &semerr.NotFoundError{}) {
+		return true
+	}
 
-		_, ok = err.(*NotFoundError)
-		return ok
-	})
+	return internal.TraverseErr(err, os.IsNotExist)
 }
 
 // AlreadyExists returns a new instance of AlreadyExists error
@@ -135,8 +131,7 @@ func (e *AlreadyExistsError) Is(target error) bool {
 // IsAlreadyExists returns true if `e` contains an [AlreadyExistsError] in its
 // chain.
 func IsAlreadyExists(e error) bool {
-	other := &AlreadyExistsError{}
-	return errors.As(e, &other)
+	return errors.As(e, &semerr.AlreadyExistsError{})
 }
 
 // BadParameter returns a new instance of BadParameterError
@@ -182,8 +177,7 @@ func (b *BadParameterError) Is(target error) bool {
 // IsBadParameter returns true if `e` contains a [BadParameterError] in its
 // chain.
 func IsBadParameter(e error) bool {
-	other := &BadParameterError{}
-	return errors.As(e, &other)
+	return errors.As(e, &semerr.InvalidArgumentError{})
 }
 
 // NotImplemented returns a new instance of NotImplementedError
@@ -229,8 +223,7 @@ func (e *NotImplementedError) Is(target error) bool {
 // IsNotImplemented returns true if `e` contains a [NotImplementedError] in its
 // chain.
 func IsNotImplemented(e error) bool {
-	other := &NotImplementedError{}
-	return errors.As(e, &other)
+	return errors.As(e, &semerr.UnimplementedError{})
 }
 
 // CompareFailed returns new instance of CompareFailedError
@@ -242,12 +235,10 @@ func CompareFailed(message string, args ...interface{}) Error {
 
 // CompareFailedError indicates a failed comparison (e.g. bad password or hash)
 type CompareFailedError struct {
+	semerr.FailedPreconditionError `json:"-"`
+
 	// Message is user-friendly error message
 	Message string `json:"message"`
-}
-
-func (CompareFailedError) GRPCCode() semerr.Code {
-	return semerr.Code(codes.FailedPrecondition)
 }
 
 func (CompareFailedError) HTTPStatus() int {
@@ -285,8 +276,7 @@ func (e *CompareFailedError) Is(target error) bool {
 // IsCompareFailed returns true if `e` contains a [CompareFailedError] in its
 // chain.
 func IsCompareFailed(e error) bool {
-	other := &CompareFailedError{}
-	return errors.As(e, &other)
+	return errors.As(e, &semerr.FailedPreconditionError{})
 }
 
 // AccessDenied returns new instance of AccessDeniedError
@@ -334,8 +324,7 @@ func (e *AccessDeniedError) Is(target error) bool {
 // IsAccessDenied returns true if `e` contains an [AccessDeniedError] in its
 // chain.
 func IsAccessDenied(e error) bool {
-	other := &AccessDeniedError{}
-	return errors.As(e, &other)
+	return errors.As(e, &semerr.PermissionDeniedError{})
 }
 
 // ConvertSystemError converts system error to appropriate trace error
@@ -389,12 +378,10 @@ func ConnectionProblem(err error, message string, args ...interface{}) Error {
 
 // ConnectionProblemError indicates a network related problem
 type ConnectionProblemError struct {
+	semerr.UnavailableError `json:"-"`
+
 	Message string `json:"message"`
 	Err     error  `json:"-"`
-}
-
-func (ConnectionProblemError) GRPCCode() semerr.Code {
-	return semerr.Code(codes.Unavailable)
 }
 
 func (ConnectionProblemError) HTTPStatus() int {
@@ -440,8 +427,7 @@ func (c *ConnectionProblemError) Is(target error) bool {
 // IsConnectionProblem returns true if `e` contains a [ConnectionProblemError]
 // in its chain.
 func IsConnectionProblem(e error) bool {
-	other := &ConnectionProblemError{}
-	return errors.As(e, &other)
+	return errors.As(e, &semerr.UnavailableError{})
 }
 
 // LimitExceeded returns whether new instance of LimitExceededError
@@ -486,8 +472,7 @@ func (e *LimitExceededError) Is(target error) bool {
 // IsLimitExceeded returns true if `e` contains a [LimitExceededError] in its
 // chain.
 func IsLimitExceeded(e error) bool {
-	other := &LimitExceededError{}
-	return errors.As(e, &other)
+	return errors.As(e, &semerr.ResourceExhaustedError{})
 }
 
 // Trust returns new instance of TrustError

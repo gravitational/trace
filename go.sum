@@ -11,8 +11,8 @@ github.com/cncf/udpa/go v0.0.0-20210930031921-04548b0d99d4/go.mod h1:6pvJx4me5XP
 github.com/cncf/xds/go v0.0.0-20210805033703-aa0b78936158/go.mod h1:eXthEFrGJvWHgFFCl3hGmgk+/aYT6PnTQLykKQRLhEs=
 github.com/cncf/xds/go v0.0.0-20210922020428-25de7278fc84/go.mod h1:eXthEFrGJvWHgFFCl3hGmgk+/aYT6PnTQLykKQRLhEs=
 github.com/cncf/xds/go v0.0.0-20211011173535-cb28da3451f1/go.mod h1:eXthEFrGJvWHgFFCl3hGmgk+/aYT6PnTQLykKQRLhEs=
-github.com/codingllama/semerr v0.0.0-20230806194659-d1d78d52b397 h1:s1KQ37A78Y9akSblar5hGdKLCAYkNQ1OBnW0h/YJO/I=
-github.com/codingllama/semerr v0.0.0-20230806194659-d1d78d52b397/go.mod h1:aqG2dsscmvlBezM+EFlvMskPNCzcy5bOdGe3Jurwv2w=
+github.com/codingllama/semerr v0.0.0-20230808004335-a9cc35148374 h1:3iXSdtIp+p5/W01VDxgvIJBowGeJnDwqBaVAs3nmaRM=
+github.com/codingllama/semerr v0.0.0-20230808004335-a9cc35148374/go.mod h1:aqG2dsscmvlBezM+EFlvMskPNCzcy5bOdGe3Jurwv2w=
 github.com/davecgh/go-spew v1.1.0/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
 github.com/davecgh/go-spew v1.1.1 h1:vj9j/u1bqnvCEfJOwUhtlOARqs3+rkHYY13jYWTU97c=
 github.com/davecgh/go-spew v1.1.1/go.mod h1:J7Y8YcW2NihsgmVo/mv3lAwl/skON4iLHjSsI+c5H38=
