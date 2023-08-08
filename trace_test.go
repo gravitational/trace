@@ -121,8 +121,6 @@ func TestWrapNil(t *testing.T) {
 	assert.Nil(t, err1)
 
 	var err2 error
-	err2 = nil
-
 	err3 := Wrap(err2)
 	assert.Nil(t, err3)
 
@@ -463,7 +461,7 @@ func TestWriteExternalErrors(t *testing.T) {
 	WriteError(w, err)
 	extErr := ReadError(w.StatusCode, w.Body)
 	assert.Equal(t, http.StatusInternalServerError, w.StatusCode)
-	assert.Regexp(t, ".*.snap.*", strings.Replace(string(w.Body), "\n", "", -1))
+	assert.Regexp(t, ".*.snap.*", strings.ReplaceAll(string(w.Body), "\n", ""))
 	require.NotNil(t, extErr)
 	assert.EqualError(t, err, extErr.Error())
 
@@ -472,7 +470,7 @@ func TestWriteExternalErrors(t *testing.T) {
 	WriteError(w, err)
 	extErr = ReadError(w.StatusCode, w.Body)
 	assert.Equal(t, http.StatusInternalServerError, w.StatusCode)
-	assert.Regexp(t, ".*.snap.*", strings.Replace(string(w.Body), "\n", "", -1))
+	assert.Regexp(t, ".*.snap.*", strings.ReplaceAll(string(w.Body), "\n", ""))
 	require.NotNil(t, extErr)
 	assert.EqualError(t, err, extErr.Error())
 }

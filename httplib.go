@@ -88,7 +88,7 @@ func replyJSON(w http.ResponseWriter, code int, err error) {
 	if err != nil {
 		out = []byte(fmt.Sprintf(`{"error": {"message": "internal marshal error: %v"}}`, err))
 	}
-	w.Write(out)
+	_, _ = w.Write(out)
 }
 
 func unmarshalError(err error, responseBody []byte) error {

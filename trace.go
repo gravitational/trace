@@ -561,9 +561,9 @@ func (r proxyError) DebugReport() string {
 		OrigErrType:    fmt.Sprintf("%T", wrappedErr.Err),
 		OrigErrMessage: wrappedErr.Err.Error(),
 		Fields:         wrappedErr.Fields,
-		StackTrace:     wrappedErr.Traces.String(),
+		StackTrace:     wrappedErr.String(),
 		UserMessage:    wrappedErr.UserMessage(),
-		Caught:         r.TraceErr.Traces.String(),
+		Caught:         r.String(),
 	})
 	return buf.String()
 }

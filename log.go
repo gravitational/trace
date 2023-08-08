@@ -34,7 +34,7 @@ import (
 	"github.com/gravitational/trace/internal"
 
 	log "github.com/sirupsen/logrus"
-	"golang.org/x/crypto/ssh/terminal"
+	"golang.org/x/term"
 )
 
 const (
@@ -59,7 +59,7 @@ const (
 func IsTerminal(w io.Writer) bool {
 	switch v := w.(type) {
 	case *os.File:
-		return terminal.IsTerminal(int(v.Fd()))
+		return term.IsTerminal(int(v.Fd()))
 	default:
 		return false
 	}
@@ -257,9 +257,9 @@ func (w *writer) writeValue(value interface{}, color int) {
 func (w *writer) writeError(value interface{}) {
 	switch err := value.(type) {
 	case Error:
-		w.WriteString(fmt.Sprintf("[%v]", err.DebugReport()))
+		fmt.Fprintf(w, "[%v]", err.DebugReport())
 	default:
-		w.WriteString(fmt.Sprintf("[%v]", value))
+		fmt.Fprintf(w, "[%v]", value)
 	}
 }
 
