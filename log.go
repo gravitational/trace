@@ -50,7 +50,7 @@ const (
 	// ComponentFields is a fields component
 	ComponentFields = "trace.fields"
 	// DefaultComponentPadding is a default padding for component field
-	DefaultComponentPadding = 11
+	DefaultComponentPadding = 12
 	// DefaultLevelPadding is a default padding for level field
 	DefaultLevelPadding = 4
 )
