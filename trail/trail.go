@@ -157,11 +157,14 @@ func FromGRPC(err error, args ...interface{}) error {
 	message := statusErr.Message()
 
 	var e error
+	const notImplementedMessage = "This server does not implement this feature yet. " +
+		"Likely the client version you are using is newer than the server. " +
+		"The server version: %v, the client version: %v. Please upgrade the server or downgrade the client."
 	switch code {
 	case codes.OK:
 		return nil
 	case codes.NotFound:
-		e = &trace.NotFoundError{Message: message}
+		e = &trace.NotFoundError{Message: notImplementedMessage}
 	case codes.AlreadyExists:
 		e = &trace.AlreadyExistsError{Message: message}
 	case codes.PermissionDenied:
@@ -175,7 +178,7 @@ func FromGRPC(err error, args ...interface{}) error {
 	case codes.Unavailable:
 		e = &trace.ConnectionProblemError{Message: message}
 	case codes.Unimplemented:
-		e = &trace.NotImplementedError{Message: message}
+		e = &trace.NotImplementedError{Message: notImplementedMessage}
 	default:
 		e = err
 	}
