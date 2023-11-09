@@ -111,6 +111,19 @@ func UserMessage(err error) string {
 	return err.Error()
 }
 
+// UserMessage returns user-friendly part of the error
+func userMessage(err error, indent int) string {
+	if err == nil {
+		return ""
+	}
+	if wrap, ok := err.(interface {
+		userMessage(indent int) string
+	}); ok {
+		return wrap.userMessage(indent)
+	}
+	return UserMessage(err)
+}
+
 // UserMessageWithFields returns user-friendly error with key-pairs as part of the message
 func UserMessageWithFields(err error) string {
 	if err == nil {
@@ -296,17 +309,20 @@ func (e *TraceErr) Clone() *TraceErr {
 
 // UserMessage returns user-friendly error message
 func (e *TraceErr) UserMessage() string {
+	return e.userMessage(0)
+}
+
+func (e *TraceErr) userMessage(indent int) string {
 	if len(e.Messages) > 0 {
 		// Format all collected messages in the reverse order, with each error
 		// on its own line with appropriate indentation so they form a tree and
 		// it's easy to see the cause and effect.
 		var buf bytes.Buffer
-		fmt.Fprintln(&buf, e.Messages[len(e.Messages)-1])
-		index, indent := len(e.Messages)-1, 1
-		for ; index > 0; index, indent = index-1, indent+1 {
-			fmt.Fprintf(&buf, "%v%v\n", strings.Repeat("\t", indent), e.Messages[index-1])
+		for i := len(e.Messages) - 1; i >= 0; i-- {
+			fmt.Fprintf(&buf, "%v%v\n", strings.Repeat("\t", indent), e.Messages[i])
+			indent++
 		}
-		fmt.Fprintf(&buf, "%v%v", strings.Repeat("\t", indent), UserMessage(e.Err))
+		fmt.Fprintf(&buf, userMessage(e.Err, indent))
 		return buf.String()
 	}
 	if e.Message != "" {
@@ -489,6 +505,19 @@ func (r aggregate) Error() string {
 			buf.WriteString(", ")
 		}
 		buf.WriteString(e.Error())
+	}
+	return buf.String()
+}
+
+func (r aggregate) UserMessage() string {
+	return r.userMessage(0)
+}
+
+func (r aggregate) userMessage(indent int) string {
+	buf := &strings.Builder{}
+	for _, e := range r {
+		buf.WriteString(userMessage(e, indent))
+		buf.WriteString("\n")
 	}
 	return buf.String()
 }
