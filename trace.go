@@ -174,6 +174,9 @@ func GetFields(err error) map[string]interface{} {
 
 // WrapWithMessage wraps the original error into Error and adds user message if any
 func WrapWithMessage(err error, message interface{}, args ...interface{}) Error {
+	if err == nil {
+		return nil
+	}
 	var trace Error
 	if traceErr, ok := err.(Error); ok {
 		trace = traceErr

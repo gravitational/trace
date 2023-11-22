@@ -80,6 +80,8 @@ func TestWrapWithMessage(t *testing.T) {
 	assert.Equal(t, "user message\tdescription", line(UserMessage(err)))
 	assert.Regexp(t, ".*trace_test.go.*", line(DebugReport(err)))
 	assert.NotRegexp(t, ".*trace.go.*", line(DebugReport(err)))
+	err = WrapWithMessage(nil, "user message")
+	assert.NoError(t, err)
 }
 
 func TestUserMessageWithFields(t *testing.T) {
