@@ -32,6 +32,14 @@ import (
 	"golang.org/x/net/context"
 )
 
+const (
+	// Component is a field that represents component - e.g. service or
+	// function
+	Component = "trace.component"
+	// ComponentFields is a fields component
+	ComponentFields = "trace.fields"
+)
+
 var debug int32
 
 // SetDebug turns on/off debugging mode, that causes Fatalf to panic
