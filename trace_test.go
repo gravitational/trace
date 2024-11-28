@@ -122,7 +122,7 @@ func TestStackTraceReport(t *testing.T) {
 	err := Wrap(testErr, "user message")
 	stackTrace := StackTraceReport(err)
 	assert.Len(t, stackTrace, 3)
-	assert.Equal(t, stackTrace[0].Func, "github.com/gravitational/trace.TestGetStackTrace")
+	assert.Equal(t, stackTrace[0].Func, "github.com/gravitational/trace.TestStackTraceReport")
 	assert.Equal(t, stackTrace[1].Func, "testing.tRunner")
 	assert.Equal(t, stackTrace[2].Func, "runtime.goexit")
 }
