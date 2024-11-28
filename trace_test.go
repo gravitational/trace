@@ -34,8 +34,11 @@ import (
 func TestEmpty(t *testing.T) {
 	assert.Equal(t, "", DebugReport(nil))
 	assert.Equal(t, "", UserMessage(nil))
+	assert.Equal(t, "", CompactUserMessage(nil))
 	assert.Equal(t, "", UserMessageWithFields(nil))
 	assert.Equal(t, map[string]interface{}{}, GetFields(nil))
+	var err TraceErr
+	assert.Equal(t, Traces{}, err.StackTraceReport())
 }
 
 func TestWrap(t *testing.T) {
@@ -45,7 +48,10 @@ func TestWrap(t *testing.T) {
 	assert.Regexp(t, ".*trace_test.go.*", line(DebugReport(err)))
 	assert.NotRegexp(t, ".*trace.go.*", line(DebugReport(err)))
 	assert.NotRegexp(t, ".*trace_test.go.*", line(UserMessage(err)))
+	assert.NotRegexp(t, ".*trace_test.go.*", line(CompactUserMessage(err)))
 	assert.Regexp(t, ".*param.*", line(UserMessage(err)))
+	assert.Regexp(t, ".*param.*", line(CompactUserMessage(err)))
+	assert.Regexp(t, ".*trace_test.go.*", err.StackTraceReport()[0].Path)
 }
 
 func TestOrigError(t *testing.T) {
@@ -67,15 +73,18 @@ func TestWrapUserMessage(t *testing.T) {
 	assert.Regexp(t, ".*trace_test.go.*", line(DebugReport(err)))
 	assert.NotRegexp(t, ".*trace.go.*", line(DebugReport(err)))
 	assert.Equal(t, "user message\tdescription", line(UserMessage(err)))
+	assert.Equal(t, "user message: description", CompactUserMessage(err))
 
 	err = Wrap(err, "user message 2")
 	assert.Equal(t, "user message 2\tuser message\t\tdescription", line(UserMessage(err)))
+	assert.Equal(t, "user message 2: user message: description", CompactUserMessage(err))
 }
 
 func TestWrapWithMessage(t *testing.T) {
 	testErr := fmt.Errorf("description")
 	err := WrapWithMessage(testErr, "user message")
 	assert.Equal(t, "user message\tdescription", line(UserMessage(err)))
+	assert.Equal(t, "user message: description", CompactUserMessage(err))
 	assert.Regexp(t, ".*trace_test.go.*", line(DebugReport(err)))
 	assert.NotRegexp(t, ".*trace.go.*", line(DebugReport(err)))
 }
@@ -104,6 +113,18 @@ func TestGetFields(t *testing.T) {
 	// ensure that you can get fields from a proxyError
 	e := roundtripError(err)
 	assert.Equal(t, fields, GetFields(e))
+}
+
+func TestStackTraceReport(t *testing.T) {
+	testErr := fmt.Errorf("description")
+	assert.Equal(t, Traces{}, StackTraceReport(testErr))
+
+	err := Wrap(testErr, "user message")
+	stackTrace := StackTraceReport(err)
+	assert.Len(t, stackTrace, 3)
+	assert.Equal(t, stackTrace[0].Func, "github.com/gravitational/trace.TestGetStackTrace")
+	assert.Equal(t, stackTrace[1].Func, "testing.tRunner")
+	assert.Equal(t, stackTrace[2].Func, "runtime.goexit")
 }
 
 func roundtripError(err error) error {

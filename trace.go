@@ -88,6 +88,21 @@ type UserMessager interface {
 	UserMessage() string
 }
 
+// CompactUserMessager returns a user message associated with the error
+type CompactUserMessager interface {
+	// CompactUserMessage formats the wraoped error message as a compact go-style
+	// wrapped error message. This format is more user-friendly and contains no
+	// new line nor tab (except the ones already present in the wrapped error).
+	// For example:
+	//
+	//	trace.Wrap(trace.Wrap(trace.Errorf("foo"), "bar"), "baz")
+	//
+	// Will produce the following compact error:
+	//
+	//	foo: bar: baz
+	CompactUserMessage() string
+}
+
 // ErrorWrapper wraps another error
 type ErrorWrapper interface {
 	// OrigError returns the wrapped error
@@ -100,6 +115,11 @@ type DebugReporter interface {
 	DebugReport() string
 }
 
+// StackTraceReporter returns the error stacktrace.
+type StackTraceReporter interface {
+	StackTraceReport() Traces
+}
+
 // UserMessage returns user-friendly part of the error
 func UserMessage(err error) string {
 	if err == nil {
@@ -107,6 +127,26 @@ func UserMessage(err error) string {
 	}
 	if wrap, ok := err.(UserMessager); ok {
 		return wrap.UserMessage()
+	}
+	return err.Error()
+}
+
+// CompactUserMessage formats the wraoped error message as a compact go-style
+// wrapped error message. This format is more user-friendly and contains no
+// new line nor tab (except the ones already present in the wrapped error).
+// For example:
+//
+//	trace.Wrap(trace.Wrap(trace.Errorf("foo"), "bar"), "baz")
+//
+// Will produce the following compact error:
+//
+//	foo: bar: baz
+func CompactUserMessage(err error) string {
+	if err == nil {
+		return ""
+	}
+	if wrap, ok := err.(CompactUserMessager); ok {
+		return wrap.CompactUserMessage()
 	}
 	return err.Error()
 }
@@ -170,6 +210,17 @@ func GetFields(err error) map[string]interface{} {
 	}
 
 	return map[string]interface{}{}
+}
+
+// StackTraceReport returns the error stacktrace if it was captured.
+func StackTraceReport(err error) Traces {
+	if err == nil {
+		return Traces{}
+	}
+	if wrap, ok := err.(StackTraceReporter); ok {
+		return wrap.StackTraceReport()
+	}
+	return Traces{}
 }
 
 // WrapWithMessage wraps the original error into Error and adds user message if any
@@ -374,6 +425,43 @@ func (e *TraceErr) GoString() string {
 	return e.DebugReport()
 }
 
+// CompactUserMessage formats the wraoped error message as a compact go-style
+// wrapped error message. This format is more user-friendly and contains no
+// new line nor tab (except the ones already present in the wrapped error).
+// For example:
+//
+//	trace.Wrap(trace.Wrap(trace.Errorf("foo"), "bar"), "baz")
+//
+// Will produce the following compact error:
+//
+//	foo: bar: baz
+func (e *TraceErr) CompactUserMessage() string {
+	if len(e.Messages) > 0 {
+		sb := strings.Builder{}
+		for i := len(e.Messages) - 1; i >= 0; i-- {
+			sb.WriteString(e.Messages[i])
+			sb.WriteString(": ")
+		}
+		sb.WriteString(e.Err.Error())
+		return sb.String()
+	}
+	if e.Message != "" {
+		// For backwards compatibility return the old user message if it's present.
+		return e.Message
+	}
+	return CompactUserMessage(e.Err)
+}
+
+// StackTraceReport returns the error stacktrace.
+func (e *TraceErr) StackTraceReport() Traces {
+	if len(e.Traces) > 0 {
+		traces := make(Traces, len(e.Traces))
+		copy(traces, e.Traces)
+		return traces
+	}
+	return StackTraceReport(e.Err)
+}
+
 // maxHops is a max supported nested depth for errors
 const maxHops = 50
 
@@ -387,6 +475,8 @@ type Error interface {
 	ErrorWrapper
 	DebugReporter
 	UserMessager
+	CompactUserMessager
+	StackTraceReporter
 
 	// GetFields returns any fields that have been added to the error
 	GetFields() map[string]interface{}
