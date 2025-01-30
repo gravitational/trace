@@ -17,9 +17,11 @@ limitations under the License.
 package trace
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"html/template"
 	"io"
 	"net/http"
 	"os"
@@ -31,8 +33,36 @@ import (
 	"github.com/stretchr/testify/require"
 )
 
+func forEachReporter(t *testing.T, test func(t *testing.T, reporter func(error) string)) {
+	tests := []struct {
+		desc     string
+		reporter func(error) string
+	}{
+		{
+			desc:     "DebugReport",
+			reporter: DebugReport,
+		},
+		{
+			desc:     "DebugReportHTML",
+			reporter: DebugReportHTML,
+		},
+		{
+			desc:     "DebugReportCLI",
+			reporter: DebugReportCLI,
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.desc, func(t *testing.T) {
+			test(t, tt.reporter)
+		})
+	}
+}
+
 func TestEmpty(t *testing.T) {
-	assert.Equal(t, "", DebugReport(nil))
+	forEachReporter(t, func(t *testing.T, reporter func(error) string) {
+		assert.Equal(t, "", reporter(nil))
+	})
 	assert.Equal(t, "", UserMessage(nil))
 	assert.Equal(t, "", UserMessageWithFields(nil))
 	assert.Equal(t, map[string]interface{}{}, GetFields(nil))
@@ -42,10 +72,12 @@ func TestWrap(t *testing.T) {
 	testErr := &testError{Param: "param"}
 	err := Wrap(Wrap(testErr))
 
-	assert.Regexp(t, ".*trace_test.go.*", line(DebugReport(err)))
-	assert.NotRegexp(t, ".*trace.go.*", line(DebugReport(err)))
-	assert.NotRegexp(t, ".*trace_test.go.*", line(UserMessage(err)))
+	forEachReporter(t, func(t *testing.T, reporter func(error) string) {
+		assert.Regexp(t, ".*trace_test.go.*", line(reporter(err)))
+		assert.NotRegexp(t, ".*trace.go.*", line(reporter(err)))
+	})
 	assert.Regexp(t, ".*param.*", line(UserMessage(err)))
+	assert.NotRegexp(t, ".*trace_test.go.*", line(UserMessage(err)))
 }
 
 func TestOrigError(t *testing.T) {
@@ -64,8 +96,10 @@ func TestWrapUserMessage(t *testing.T) {
 	testErr := fmt.Errorf("description")
 
 	err := Wrap(testErr, "user message")
-	assert.Regexp(t, ".*trace_test.go.*", line(DebugReport(err)))
-	assert.NotRegexp(t, ".*trace.go.*", line(DebugReport(err)))
+	forEachReporter(t, func(t *testing.T, reporter func(error) string) {
+		assert.Regexp(t, ".*trace_test.go.*", line(reporter(err)))
+		assert.NotRegexp(t, ".*trace.go.*", line(reporter(err)))
+	})
 	assert.Equal(t, "user message\tdescription", line(UserMessage(err)))
 
 	err = Wrap(err, "user message 2")
@@ -76,8 +110,10 @@ func TestWrapWithMessage(t *testing.T) {
 	testErr := fmt.Errorf("description")
 	err := WrapWithMessage(testErr, "user message")
 	assert.Equal(t, "user message\tdescription", line(UserMessage(err)))
-	assert.Regexp(t, ".*trace_test.go.*", line(DebugReport(err)))
-	assert.NotRegexp(t, ".*trace.go.*", line(DebugReport(err)))
+	forEachReporter(t, func(t *testing.T, reporter func(error) string) {
+		assert.Regexp(t, ".*trace_test.go.*", line(reporter(err)))
+		assert.NotRegexp(t, ".*trace.go.*", line(reporter(err)))
+	})
 }
 
 func TestUserMessageWithFields(t *testing.T) {
@@ -235,9 +271,11 @@ func TestGenericErrors(t *testing.T) {
 		}
 
 		assert.NotEmpty(t, traceErr.Traces, testCase.comment)
-		assert.Regexp(t, ".*.trace_test\\.go.*", line(DebugReport(err)), testCase.comment)
-		assert.NotRegexp(t, ".*.errors\\.go.*", line(DebugReport(err)), testCase.comment)
-		assert.NotRegexp(t, ".*.trace\\.go.*", line(DebugReport(err)), testCase.comment)
+		forEachReporter(t, func(t *testing.T, reporter func(error) string) {
+			assert.Regexp(t, ".*.trace_test\\.go.*", line(reporter(err)), testCase.comment)
+			assert.NotRegexp(t, ".*.errors\\.go.*", line(reporter(err)), testCase.comment)
+			assert.NotRegexp(t, ".*.trace\\.go.*", line(reporter(err)), testCase.comment)
+		})
 		assert.True(t, testCase.Predicate(err), testCase.comment)
 
 		w := newTestWriter()
@@ -310,14 +348,18 @@ func TestAggregates(t *testing.T) {
 
 func TestErrorf(t *testing.T) {
 	err := Errorf("error")
-	assert.Regexp(t, ".*.trace_test.go.*", line(DebugReport(err)))
-	assert.NotRegexp(t, ".*.Fields.*", line(DebugReport(err)))
+	forEachReporter(t, func(t *testing.T, reporter func(error) string) {
+		assert.Regexp(t, ".*.trace_test.go.*", line(reporter(err)))
+		assert.NotRegexp(t, ".*.Fields.*", line(reporter(err)))
+	})
 	assert.Equal(t, []string(nil), err.(*TraceErr).Messages)
 }
 
 func TestWithField(t *testing.T) {
 	err := WithField(Wrap(Errorf("error")), "testfield", true)
-	assert.Regexp(t, ".*.testfield.*", line(DebugReport(err)))
+	forEachReporter(t, func(t *testing.T, reporter func(error) string) {
+		assert.Regexp(t, ".*.testfield.*", line(reporter(err)))
+	})
 }
 
 func TestWithFields(t *testing.T) {
@@ -325,9 +367,84 @@ func TestWithFields(t *testing.T) {
 		"testfield1": true,
 		"testfield2": "value2",
 	})
-	assert.Regexp(t, ".*.Fields.*", line(DebugReport(err)))
-	assert.Regexp(t, ".*.testfield1: true.*", line(DebugReport(err)))
-	assert.Regexp(t, ".*.testfield2: value2.*", line(DebugReport(err)))
+	forEachReporter(t, func(t *testing.T, reporter func(error) string) {
+		assert.Regexp(t, ".*.Fields.*", line(reporter(err)))
+		assert.Regexp(t, ".*.testfield1: true.*", line(reporter(err)))
+		assert.Regexp(t, ".*.testfield2: value2.*", line(reporter(err)))
+	})
+}
+
+// Needed for backwards compat
+func TestDebugReportMatchesDebugReportHTML(t *testing.T) {
+	rawErr := Errorf("inner error")
+	err := Wrap(rawErr, "middle error")
+	err = Wrap(err, "outer error")
+	err = WithFields(err, map[string]interface{}{
+		"key1": "\"<>&'azAZ1,./ string field with special characters",
+		"key2": Errorf("non-string in second field"),
+	})
+	err = WithUserMessage(err, "some multiline user error\n    line 2")
+
+	assert.Equal(t, DebugReport(err), DebugReportHTML(err))
+}
+
+// Produce a debug report using a reflection-backed template for historical reasons
+func oldDebugReport(traceErr *TraceErr) string {
+	reportTemplateText := `
+ERROR REPORT:
+Original Error: {{.OrigErrType}} {{.OrigErrMessage}}
+{{if .Fields}}Fields:
+{{range $key, $value := .Fields}}  {{$key}}: {{$value}}
+{{end}}{{end}}Stack Trace:
+{{.StackTrace}}
+{{if .Caught}}Caught:
+{{.Caught}}
+User Message: {{.UserMessage}}
+{{else}}User Message: {{.UserMessage}}{{end}}`
+	reportTemplate := template.Must(template.New("debugReport").Parse(reportTemplateText))
+
+	var buf bytes.Buffer
+	//nolint:errcheck
+	reportTemplate.Execute(&buf, traceErr.toErrorReport())
+
+	return buf.String()
+}
+
+// Needed for backwards compat
+func TestDebugReportMatchesTemplate(t *testing.T) {
+	dummyVal := struct {
+		key1 string
+		key2 bool
+		key3 int
+	}{
+		key1: "val 1",
+		key2: true,
+		key3: 123456,
+	}
+
+	rawErr := Errorf("inner error %q", "quoted value")
+	err := Wrap(rawErr, "middle error %#v", dummyVal)
+	err = Wrap(err, "outer error")
+	err = WithField(err, "key", "\"<>&'azAZ1,./ string field with special characters")
+	traceErr := WithUserMessage(err, "some multiline user error\n    line 2")
+
+	debugReportMessage := DebugReport(traceErr)
+	oldTemplatedMessage := oldDebugReport(traceErr)
+	require.Equal(t, oldTemplatedMessage, debugReportMessage)
+}
+
+func TestCLIReportDoesNotEscapeHTML(t *testing.T) {
+	rawErr := Errorf("inner error <>&'azAZ1,./")
+	err := Wrap(rawErr, "middle error <>&'azAZ1,./")
+	err = Wrap(err, "outer error <>&'azAZ1,./")
+	err = WithField(err, "key", "\"<>&'azAZ1,./ string field 1 with special characters")
+	err = WithUserMessage(err, "some multiline user error\n    line 2 <>&'azAZ1,./")
+
+	message := DebugReportCLI(err)
+
+	// Escaped HTML charts always end in `;`. For this test to be effective,
+	// a semicolon character should not appear in the error.
+	assert.NotContains(t, message, ';')
 }
 
 func TestAggregateConvertsToCommonErrors(t *testing.T) {
@@ -365,7 +482,9 @@ func TestAggregateConvertsToCommonErrors(t *testing.T) {
 		SetDebug(true)
 		err := testCase.Err
 
-		assert.Regexp(t, ".*.trace_test.go.*", line(DebugReport(err)), testCase.comment)
+		forEachReporter(t, func(t *testing.T, reporter func(error) string) {
+			assert.Regexp(t, ".*.trace_test.go.*", line(DebugReport(err)), testCase.comment)
+		})
 		assert.True(t, testCase.Predicate(err), testCase.comment)
 
 		w := newTestWriter()

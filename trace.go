@@ -23,7 +23,9 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html/template"
+	"html"
+	"maps"
+	"slices"
 	"strings"
 	"sync/atomic"
 
@@ -95,9 +97,18 @@ type ErrorWrapper interface {
 }
 
 // DebugReporter formats an error for display
+// Depreciated: Use `FormattedDebugReporter` instead.
 type DebugReporter interface {
 	// DebugReport formats an error for display
 	DebugReport() string
+}
+
+// FormattedDebugReporter formats an error in different output formats
+type FormattedDebugReporter interface {
+	// HTML-escaped error message formatted for browser display
+	DebugReportHTML() string
+	// Unescaped error message formatted for CLI display
+	DebugReportCLI() string
 }
 
 // UserMessage returns user-friendly part of the error
@@ -130,16 +141,33 @@ func UserMessageWithFields(err error) string {
 	return err.Error()
 }
 
-// DebugReport returns debug report with all known information
+// DebugReportHTML returns a HTML escaped debug report with all known information
 // about the error including stack trace if it was captured
-func DebugReport(err error) string {
+func DebugReportHTML(err error) string {
 	if err == nil {
 		return ""
 	}
-	if reporter, ok := err.(DebugReporter); ok {
-		return reporter.DebugReport()
+	if reporter, ok := err.(FormattedDebugReporter); ok {
+		return reporter.DebugReportHTML()
 	}
 	return err.Error()
+}
+
+// DebugReportCLI returns an unescaped debug report with all known information
+// about the error including stack trace if it was captured
+func DebugReportCLI(err error) string {
+	if err == nil {
+		return ""
+	}
+	if reporter, ok := err.(FormattedDebugReporter); ok {
+		return reporter.DebugReportCLI()
+	}
+	return err.Error()
+}
+
+// Depreciated: Use `DebugReportHTML` or `DebugReportCLI` instead
+func DebugReport(err error) string {
+	return DebugReportHTML(err)
 }
 
 // GetFields returns any fields that have been added to the error message
@@ -316,20 +344,28 @@ func (e *TraceErr) UserMessage() string {
 	return UserMessage(e.Err)
 }
 
-// DebugReport returns developer-friendly error report
+// Depreciated: Use `DebugReportHTML` or `DebugReportCLI` instead.
 func (e *TraceErr) DebugReport() string {
-	var buf bytes.Buffer
-	err := reportTemplate.Execute(&buf, errorReport{
+	return e.DebugReportHTML()
+}
+
+func (e *TraceErr) toErrorReport() *errorReport {
+	return &errorReport{
 		OrigErrType:    fmt.Sprintf("%T", e.Err),
 		OrigErrMessage: e.Err.Error(),
 		Fields:         e.Fields,
 		StackTrace:     e.Traces.String(),
 		UserMessage:    e.UserMessage(),
-	})
-	if err != nil {
-		return fmt.Sprint("error generating debug report: ", err.Error())
 	}
-	return buf.String()
+}
+
+// DebugReport returns developer-friendly, HTML escaped error report
+func (e *TraceErr) DebugReportHTML() string {
+	return e.toErrorReport().htmlEscape().message()
+}
+
+func (e *TraceErr) DebugReportCLI() string {
+	return e.toErrorReport().message()
 }
 
 // Error returns user-friendly error message when not in debug mode
@@ -371,7 +407,7 @@ func (e *TraceErr) OrigError() error {
 // GoString formats this trace object for use with
 // the "%#v" format string
 func (e *TraceErr) GoString() string {
-	return e.DebugReport()
+	return e.DebugReportHTML()
 }
 
 // maxHops is a max supported nested depth for errors
@@ -547,25 +583,35 @@ func wrapProxy(err error) Error {
 	}
 }
 
+// Depreciated: Use `DebugReportHTML` or `DebugReportCLI` instead
 // DebugReport formats the underlying error for display
 // Implements DebugReporter
 func (r proxyError) DebugReport() string {
+	return r.DebugReportHTML()
+}
+
+// DebugReportHTML formats the underlying error for browser display
+// Implements FormattedDebugReporter
+func (r proxyError) DebugReportHTML() string {
 	var wrappedErr *TraceErr
 	var ok bool
 	if wrappedErr, ok = r.TraceErr.Err.(*TraceErr); !ok {
-		return DebugReport(r.TraceErr)
+		return DebugReportHTML(r.TraceErr)
 	}
-	var buf bytes.Buffer
-	//nolint:errcheck
-	reportTemplate.Execute(&buf, errorReport{
-		OrigErrType:    fmt.Sprintf("%T", wrappedErr.Err),
-		OrigErrMessage: wrappedErr.Err.Error(),
-		Fields:         wrappedErr.Fields,
-		StackTrace:     wrappedErr.Traces.String(),
-		UserMessage:    wrappedErr.UserMessage(),
-		Caught:         r.TraceErr.Traces.String(),
-	})
-	return buf.String()
+
+	return wrappedErr.toErrorReport().htmlEscape().message()
+}
+
+// DebugReportCLI formats the underlying error for CLI display
+// Implements FormattedDebugReporter
+func (r proxyError) DebugReportCLI() string {
+	var wrappedErr *TraceErr
+	var ok bool
+	if wrappedErr, ok = r.TraceErr.Err.(*TraceErr); !ok {
+		return DebugReportCLI(r.TraceErr)
+	}
+
+	return wrappedErr.toErrorReport().message()
 }
 
 // GoString formats this trace object for use with
@@ -595,17 +641,55 @@ type errorReport struct {
 	Caught string
 }
 
-var (
-	reportTemplate     = template.Must(template.New("debugReport").Parse(reportTemplateText))
-	reportTemplateText = `
-ERROR REPORT:
-Original Error: {{.OrigErrType}} {{.OrigErrMessage}}
-{{if .Fields}}Fields:
-{{range $key, $value := .Fields}}  {{$key}}: {{$value}}
-{{end}}{{end}}Stack Trace:
-{{.StackTrace}}
-{{if .Caught}}Caught:
-{{.Caught}}
-User Message: {{.UserMessage}}
-{{else}}User Message: {{.UserMessage}}{{end}}`
-)
+// Produce an unescaped message for the report.
+func (er *errorReport) message() string {
+	// Using a string builder instead of a template allows for dead code elimination at the cost
+	// of code that is a little more difficult to read.
+	var messageBuilder strings.Builder
+	// Note: docs explicitly state that the returned error is nil. No need to check it here.
+	messageBuilder.WriteString("\nERROR REPORT:\n")
+	fmt.Fprintf(&messageBuilder, "Original Error: %s %s\n", er.OrigErrType, er.OrigErrMessage)
+
+	if len(er.Fields) > 0 {
+		messageBuilder.WriteString("Fields:\n")
+
+		// Sort keys to produce a deterministic output. This makes messages
+		// easier to read.
+		keys := slices.Sorted(maps.Keys(er.Fields))
+		for _, key := range keys {
+			value := er.Fields[key]
+			fmt.Fprintf(&messageBuilder, "  %s: %v\n", key, value)
+		}
+	}
+	messageBuilder.WriteString("Stack Trace:\n")
+	messageBuilder.WriteString(er.StackTrace)
+	messageBuilder.WriteString("\n")
+
+	if len(er.Caught) > 0 {
+		messageBuilder.WriteString("Caught:\n")
+		messageBuilder.WriteString(er.Caught)
+		messageBuilder.WriteString("\n")
+	}
+
+	fmt.Fprintf(&messageBuilder, "User Message: %s", er.UserMessage)
+
+	return messageBuilder.String()
+}
+
+// HTML escapes all fields, returning a new, escaped report
+func (er *errorReport) htmlEscape() *errorReport {
+	newReport := &errorReport{
+		OrigErrType:    html.EscapeString(er.OrigErrType),
+		OrigErrMessage: html.EscapeString(er.OrigErrMessage),
+		Fields:         make(map[string]interface{}, len(er.Fields)),
+		StackTrace:     html.EscapeString(er.StackTrace),
+		UserMessage:    html.EscapeString(er.UserMessage),
+		Caught:         html.EscapeString(er.Caught),
+	}
+
+	for key, value := range er.Fields {
+		newReport.Fields[html.EscapeString(key)] = html.EscapeString(fmt.Sprintf("%v", value))
+	}
+
+	return newReport
+}
