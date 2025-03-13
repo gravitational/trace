@@ -1,6 +1,6 @@
 module github.com/gravitational/trace
 
-go 1.20
+go 1.23.7
 
 require (
 	github.com/stretchr/testify v1.8.3
