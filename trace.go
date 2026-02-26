@@ -23,13 +23,12 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html/template"
 	"strings"
 	"sync/atomic"
 
-	"github.com/gravitational/trace/internal"
-
 	"golang.org/x/net/context"
+
+	"github.com/gravitational/trace/internal"
 )
 
 var debug int32
@@ -318,18 +317,24 @@ func (e *TraceErr) UserMessage() string {
 
 // DebugReport returns developer-friendly error report
 func (e *TraceErr) DebugReport() string {
-	var buf bytes.Buffer
-	err := reportTemplate.Execute(&buf, errorReport{
-		OrigErrType:    fmt.Sprintf("%T", e.Err),
-		OrigErrMessage: e.Err.Error(),
-		Fields:         e.Fields,
-		StackTrace:     e.Traces.String(),
-		UserMessage:    e.UserMessage(),
-	})
-	if err != nil {
-		return fmt.Sprint("error generating debug report: ", err.Error())
+	var sb strings.Builder
+	sb.WriteString("\nERROR REPORT:\nOriginal Error: ")
+	fmt.Fprintf(&sb, "%T ", e.Err)
+	sb.WriteString(e.Err.Error())
+	sb.WriteRune('\n')
+	if len(e.Fields) > 0 {
+		sb.WriteString("Fields:\n")
+		for k, v := range e.Fields {
+			fmt.Fprintf(&sb, "  %s: %v\n", k, v)
+		}
 	}
-	return buf.String()
+	sb.WriteString("Stack Trace:\n")
+	sb.WriteString(e.Traces.String())
+	sb.WriteRune('\n')
+	sb.WriteString("User Message: ")
+	sb.WriteString(e.UserMessage())
+
+	return sb.String()
 }
 
 // Error returns user-friendly error message when not in debug mode
@@ -550,22 +555,38 @@ func wrapProxy(err error) Error {
 // DebugReport formats the underlying error for display
 // Implements DebugReporter
 func (r proxyError) DebugReport() string {
-	var wrappedErr *TraceErr
-	var ok bool
-	if wrappedErr, ok = r.TraceErr.Err.(*TraceErr); !ok {
+	wrappedErr, ok := r.TraceErr.Err.(*TraceErr)
+	if !ok {
 		return DebugReport(r.TraceErr)
 	}
-	var buf bytes.Buffer
-	//nolint:errcheck
-	reportTemplate.Execute(&buf, errorReport{
-		OrigErrType:    fmt.Sprintf("%T", wrappedErr.Err),
-		OrigErrMessage: wrappedErr.Err.Error(),
-		Fields:         wrappedErr.Fields,
-		StackTrace:     wrappedErr.Traces.String(),
-		UserMessage:    wrappedErr.UserMessage(),
-		Caught:         r.TraceErr.Traces.String(),
-	})
-	return buf.String()
+
+	var sb strings.Builder
+	sb.WriteString("\nERROR REPORT:\nOriginal Error: ")
+	fmt.Fprintf(&sb, "%T ", wrappedErr.Err)
+	sb.WriteString(wrappedErr.Err.Error())
+	sb.WriteRune('\n')
+	if len(wrappedErr.Fields) > 0 {
+		sb.WriteString("Fields:\n")
+		for k, v := range wrappedErr.Fields {
+			fmt.Fprintf(&sb, "  %s: %v\n", k, v)
+		}
+	}
+	sb.WriteString("Stack Trace:\n")
+	sb.WriteString(wrappedErr.Traces.String())
+	sb.WriteRune('\n')
+	if caught := r.TraceErr.Traces.String(); caught != "" {
+		sb.WriteString("Caught:\n")
+		sb.WriteString(caught)
+		sb.WriteRune('\n')
+		sb.WriteString("User Message: ")
+		sb.WriteString(wrappedErr.UserMessage())
+		sb.WriteRune('\n')
+	} else {
+		sb.WriteString("User Message: ")
+		sb.WriteString(wrappedErr.UserMessage())
+	}
+
+	return sb.String()
 }
 
 // GoString formats this trace object for use with
@@ -594,18 +615,3 @@ type errorReport struct {
 	// has been recorded after coming over the wire
 	Caught string
 }
-
-var (
-	reportTemplate     = template.Must(template.New("debugReport").Parse(reportTemplateText))
-	reportTemplateText = `
-ERROR REPORT:
-Original Error: {{.OrigErrType}} {{.OrigErrMessage}}
-{{if .Fields}}Fields:
-{{range $key, $value := .Fields}}  {{$key}}: {{$value}}
-{{end}}{{end}}Stack Trace:
-{{.StackTrace}}
-{{if .Caught}}Caught:
-{{.Caught}}
-User Message: {{.UserMessage}}
-{{else}}User Message: {{.UserMessage}}{{end}}`
-)

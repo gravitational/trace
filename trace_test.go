@@ -17,9 +17,11 @@ limitations under the License.
 package trace
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"html/template"
 	"io"
 	"net/http"
 	"os"
@@ -30,6 +32,207 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+var (
+	reportTemplate     = template.Must(template.New("debugReport").Parse(reportTemplateText))
+	reportTemplateText = `
+ERROR REPORT:
+Original Error: {{.OrigErrType}} {{.OrigErrMessage}}
+{{if .Fields}}Fields:
+{{range $key, $value := .Fields}}  {{$key}}: {{$value}}
+{{end}}{{end}}Stack Trace:
+{{.StackTrace}}
+{{if .Caught}}Caught:
+{{.Caught}}
+User Message: {{.UserMessage}}
+{{else}}User Message: {{.UserMessage}}{{end}}`
+)
+
+// OldProxyErrorDebugReport generates a DebugReport by leveraging the
+// [reportTemplateText] template. This was moved when the DebugReport
+// implementation changed to validate the output matches.
+func OldProxyErrorDebugReport(r proxyError) string {
+	wrappedErr, ok := r.TraceErr.Err.(*TraceErr)
+	if !ok {
+		return DebugReport(r.TraceErr)
+	}
+	var buf bytes.Buffer
+	err := reportTemplate.Execute(&buf, errorReport{
+		OrigErrType:    fmt.Sprintf("%T", wrappedErr.Err),
+		OrigErrMessage: wrappedErr.Err.Error(),
+		Fields:         wrappedErr.Fields,
+		StackTrace:     wrappedErr.Traces.String(),
+		UserMessage:    wrappedErr.UserMessage(),
+		Caught:         r.TraceErr.Traces.String(),
+	})
+	if err != nil {
+		return fmt.Sprint("error generating debug report: ", err.Error())
+	}
+	return buf.String()
+}
+
+// OldTraceErrorDebugReport generates a DebugReport by leveraging the
+// [reportTemplateText] template. This was moved when the DebugReport
+// implementation changed to validate the output matches.
+func OldTraceErrorDebugReport(e *TraceErr) string {
+	var buf bytes.Buffer
+	err := reportTemplate.Execute(&buf, errorReport{
+		OrigErrType:    fmt.Sprintf("%T", e.Err),
+		OrigErrMessage: e.Err.Error(),
+		Fields:         e.Fields,
+		StackTrace:     e.Traces.String(),
+		UserMessage:    e.UserMessage(),
+	})
+	if err != nil {
+		return fmt.Sprint("error generating debug report: ", err.Error())
+	}
+	return buf.String()
+}
+
+func TestProxyErrorDebugReport(t *testing.T) {
+	innerTraces := Traces{
+		{Path: "/a/b/c", Line: 109, Func: "abcd"},
+		{Path: "/q/p/r", Line: 120, Func: "lkjh"},
+	}
+	caughtTraces := Traces{
+		{Path: "/x/y/z", Line: 200, Func: "efgh"},
+	}
+	innerErr := &BadParameterError{Message: "bad param"}
+
+	tests := []struct {
+		name string
+		err  proxyError
+	}{
+		{
+			name: "basic",
+			err: proxyError{
+				TraceErr: &TraceErr{
+					Err: &TraceErr{
+						Err:    innerErr,
+						Traces: innerTraces,
+					},
+					Traces: caughtTraces,
+				},
+			},
+		},
+		{
+			name: "with fields",
+			err: proxyError{
+				TraceErr: &TraceErr{
+					Err: &TraceErr{
+						Err:    innerErr,
+						Traces: innerTraces,
+						Fields: map[string]interface{}{"key": "value"},
+					},
+					Traces: caughtTraces,
+				},
+			},
+		},
+		{
+			name: "no caught traces",
+			err: proxyError{
+				TraceErr: &TraceErr{
+					Err: &TraceErr{
+						Err:    innerErr,
+						Traces: innerTraces,
+					},
+				},
+			},
+		},
+		{
+			name: "with message",
+			err: proxyError{
+				TraceErr: &TraceErr{
+					Err: &TraceErr{
+						Err:     innerErr,
+						Traces:  innerTraces,
+						Message: "legacy user message",
+					},
+					Traces: caughtTraces,
+				},
+			},
+		},
+		{
+			name: "with messages",
+			err: proxyError{
+				TraceErr: &TraceErr{
+					Err: &TraceErr{
+						Err:      innerErr,
+						Traces:   innerTraces,
+						Messages: []string{"llama", "fox"},
+					},
+					Traces: caughtTraces,
+				},
+			},
+		},
+		{
+			name: "bare error",
+			err: proxyError{
+				TraceErr: &TraceErr{
+					Err:    errors.New("failure!"),
+					Traces: caughtTraces,
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			require.Equal(t, OldProxyErrorDebugReport(test.err), test.err.DebugReport())
+		})
+	}
+}
+
+func TestTraceErrDebugReport(t *testing.T) {
+	traces := Traces{
+		{Path: "/a/b/c", Line: 109, Func: "abcd"},
+		{Path: "/q/p/r", Line: 120, Func: "lkjh"},
+	}
+	innerErr := &BadParameterError{Message: "bad param"}
+
+	tests := []struct {
+		name  string
+		error *TraceErr
+	}{
+		{
+			name: "basic",
+			error: &TraceErr{
+				Err:    innerErr,
+				Traces: traces,
+			},
+		},
+		{
+			name: "with fields",
+			error: &TraceErr{
+				Err:    innerErr,
+				Traces: traces,
+				Fields: map[string]interface{}{"key": "value"},
+			},
+		},
+		{
+			name: "with message",
+			error: &TraceErr{
+				Err:     innerErr,
+				Traces:  traces,
+				Message: "legacy user message",
+			},
+		},
+		{
+			name: "with messages",
+			error: &TraceErr{
+				Err:      innerErr,
+				Traces:   traces,
+				Messages: []string{"msg1", "msg2"},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			require.Equal(t, OldTraceErrorDebugReport(test.error), test.error.DebugReport())
+		})
+	}
+}
 
 func TestEmpty(t *testing.T) {
 	assert.Equal(t, "", DebugReport(nil))
