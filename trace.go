@@ -599,19 +599,3 @@ func (r proxyError) GoString() string {
 type proxyError struct {
 	*TraceErr
 }
-
-type errorReport struct {
-	// OrigErrType specifies the error type as text
-	OrigErrType string
-	// OrigErrMessage specifies the original error's message
-	OrigErrMessage string
-	// Fields lists any additional fields attached to the error
-	Fields map[string]interface{}
-	// StackTrace specifies the call stack
-	StackTrace string
-	// UserMessage is the user-facing message (if any)
-	UserMessage string
-	// Caught optionally specifies the stack trace where the error
-	// has been recorded after coming over the wire
-	Caught string
-}

@@ -48,6 +48,22 @@ User Message: {{.UserMessage}}
 {{else}}User Message: {{.UserMessage}}{{end}}`
 )
 
+type errorReport struct {
+	// OrigErrType specifies the error type as text
+	OrigErrType string
+	// OrigErrMessage specifies the original error's message
+	OrigErrMessage string
+	// Fields lists any additional fields attached to the error
+	Fields map[string]any
+	// StackTrace specifies the call stack
+	StackTrace string
+	// UserMessage is the user-facing message (if any)
+	UserMessage string
+	// Caught optionally specifies the stack trace where the error
+	// has been recorded after coming over the wire
+	Caught string
+}
+
 // OldProxyErrorDebugReport generates a DebugReport by leveraging the
 // [reportTemplateText] template. This was moved when the DebugReport
 // implementation changed to validate the output matches.
