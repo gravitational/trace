@@ -190,6 +190,20 @@ func TestProxyErrorDebugReport(t *testing.T) {
 				},
 			},
 		},
+		{
+			name: "html special characters",
+			err: proxyError{
+				TraceErr: &TraceErr{
+					Err: &TraceErr{
+						Err:      &BadParameterError{Message: `a < b & c > d "e"`},
+						Traces:   innerTraces,
+						Fields:   map[string]interface{}{"k<ey": "v<al&ue>"},
+						Messages: []string{`<script>alert("xss")</script>`},
+					},
+					Traces: caughtTraces,
+				},
+			},
+		},
 	}
 
 	for _, test := range tests {
@@ -239,6 +253,15 @@ func TestTraceErrDebugReport(t *testing.T) {
 				Err:      innerErr,
 				Traces:   traces,
 				Messages: []string{"msg1", "msg2"},
+			},
+		},
+		{
+			name: "html special characters",
+			error: &TraceErr{
+				Err:      &BadParameterError{Message: `a < b & c > d "e"`},
+				Traces:   traces,
+				Fields:   map[string]interface{}{"k<ey": "v<al&ue>"},
+				Messages: []string{`<script>alert("xss")</script>`},
 			},
 		},
 	}

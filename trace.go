@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"html"
 	"strings"
 	"sync/atomic"
 
@@ -320,19 +321,19 @@ func (e *TraceErr) DebugReport() string {
 	var sb strings.Builder
 	sb.WriteString("\nERROR REPORT:\nOriginal Error: ")
 	fmt.Fprintf(&sb, "%T ", e.Err)
-	sb.WriteString(e.Err.Error())
+	sb.WriteString(html.EscapeString(e.Err.Error()))
 	sb.WriteRune('\n')
 	if len(e.Fields) > 0 {
 		sb.WriteString("Fields:\n")
 		for k, v := range e.Fields {
-			fmt.Fprintf(&sb, "  %s: %v\n", k, v)
+			fmt.Fprintf(&sb, "  %s: %s\n", html.EscapeString(k), html.EscapeString(fmt.Sprintf("%v", v)))
 		}
 	}
 	sb.WriteString("Stack Trace:\n")
-	sb.WriteString(e.Traces.String())
+	sb.WriteString(html.EscapeString(e.Traces.String()))
 	sb.WriteRune('\n')
 	sb.WriteString("User Message: ")
-	sb.WriteString(e.UserMessage())
+	sb.WriteString(html.EscapeString(e.UserMessage()))
 
 	return sb.String()
 }
@@ -563,27 +564,27 @@ func (r proxyError) DebugReport() string {
 	var sb strings.Builder
 	sb.WriteString("\nERROR REPORT:\nOriginal Error: ")
 	fmt.Fprintf(&sb, "%T ", wrappedErr.Err)
-	sb.WriteString(wrappedErr.Err.Error())
+	sb.WriteString(html.EscapeString(wrappedErr.Err.Error()))
 	sb.WriteRune('\n')
 	if len(wrappedErr.Fields) > 0 {
 		sb.WriteString("Fields:\n")
 		for k, v := range wrappedErr.Fields {
-			fmt.Fprintf(&sb, "  %s: %v\n", k, v)
+			fmt.Fprintf(&sb, "  %s: %s\n", html.EscapeString(k), html.EscapeString(fmt.Sprintf("%v", v)))
 		}
 	}
 	sb.WriteString("Stack Trace:\n")
-	sb.WriteString(wrappedErr.Traces.String())
+	sb.WriteString(html.EscapeString(wrappedErr.Traces.String()))
 	sb.WriteRune('\n')
 	if caught := r.TraceErr.Traces.String(); caught != "" {
 		sb.WriteString("Caught:\n")
-		sb.WriteString(caught)
+		sb.WriteString(html.EscapeString(caught))
 		sb.WriteRune('\n')
 		sb.WriteString("User Message: ")
-		sb.WriteString(wrappedErr.UserMessage())
+		sb.WriteString(html.EscapeString(wrappedErr.UserMessage()))
 		sb.WriteRune('\n')
 	} else {
 		sb.WriteString("User Message: ")
-		sb.WriteString(wrappedErr.UserMessage())
+		sb.WriteString(html.EscapeString(wrappedErr.UserMessage()))
 	}
 
 	return sb.String()
