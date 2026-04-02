@@ -33,4 +33,5 @@ jobs:
         with:
           go-version-file: go.mod
       - name: Check dependencies with the nocrypto build tag
+        shell: bash # for pipefail
         run: "go list -tags gravitational_trace.nocrypto -deps ./... | sort | tee /dev/stderr | (! grep -q -e ^crypto$ -e ^crypto/ )"
