@@ -326,7 +326,7 @@ func (e *TraceErr) DebugReport() string {
 	if len(e.Fields) > 0 {
 		sb.WriteString("Fields:\n")
 		for k, v := range e.Fields {
-			fmt.Fprintf(&sb, "  %s: %s\n", html.EscapeString(k), html.EscapeString(fmt.Sprintf("%v", v)))
+			fmt.Fprintf(&sb, "  %s: %s\n", html.EscapeString(k), html.EscapeString(fmt.Sprint(v)))
 		}
 	}
 	sb.WriteString("Stack Trace:\n")
@@ -562,14 +562,13 @@ func (r proxyError) DebugReport() string {
 	}
 
 	var sb strings.Builder
-	sb.WriteString("\nERROR REPORT:\nOriginal Error: ")
-	fmt.Fprintf(&sb, "%T ", wrappedErr.Err)
+	fmt.Fprintf(&sb, "\nERROR REPORT:\nOriginal Error: %T ", wrappedErr.Err)
 	sb.WriteString(html.EscapeString(wrappedErr.Err.Error()))
 	sb.WriteRune('\n')
 	if len(wrappedErr.Fields) > 0 {
 		sb.WriteString("Fields:\n")
 		for k, v := range wrappedErr.Fields {
-			fmt.Fprintf(&sb, "  %s: %s\n", html.EscapeString(k), html.EscapeString(fmt.Sprintf("%v", v)))
+			fmt.Fprintf(&sb, "  %s: %s\n", html.EscapeString(k), html.EscapeString(fmt.Sprint(v)))
 		}
 	}
 	sb.WriteString("Stack Trace:\n")
