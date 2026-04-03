@@ -221,19 +221,19 @@ func TestTraceErrDebugReport(t *testing.T) {
 	innerErr := &BadParameterError{Message: "bad param"}
 
 	tests := []struct {
-		name  string
-		error *TraceErr
+		name string
+		err  *TraceErr
 	}{
 		{
 			name: "basic",
-			error: &TraceErr{
+			err: &TraceErr{
 				Err:    innerErr,
 				Traces: traces,
 			},
 		},
 		{
 			name: "with fields",
-			error: &TraceErr{
+			err: &TraceErr{
 				Err:    innerErr,
 				Traces: traces,
 				Fields: map[string]interface{}{"key": "value"},
@@ -241,7 +241,7 @@ func TestTraceErrDebugReport(t *testing.T) {
 		},
 		{
 			name: "with message",
-			error: &TraceErr{
+			err: &TraceErr{
 				Err:     innerErr,
 				Traces:  traces,
 				Message: "legacy user message",
@@ -249,7 +249,7 @@ func TestTraceErrDebugReport(t *testing.T) {
 		},
 		{
 			name: "with messages",
-			error: &TraceErr{
+			err: &TraceErr{
 				Err:      innerErr,
 				Traces:   traces,
 				Messages: []string{"msg1", "msg2"},
@@ -257,7 +257,7 @@ func TestTraceErrDebugReport(t *testing.T) {
 		},
 		{
 			name: "html special characters",
-			error: &TraceErr{
+			err: &TraceErr{
 				Err:      &BadParameterError{Message: `a < b & c > d "e"`},
 				Traces:   traces,
 				Fields:   map[string]interface{}{"k<ey": "v<al&ue>"},
@@ -268,7 +268,7 @@ func TestTraceErrDebugReport(t *testing.T) {
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			require.Equal(t, OldTraceErrorDebugReport(test.error), test.error.DebugReport())
+			require.Equal(t, OldTraceErrorDebugReport(test.err), test.err.DebugReport())
 		})
 	}
 }
