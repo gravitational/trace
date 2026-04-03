@@ -859,3 +859,27 @@ func TestAggregate_IsError(t *testing.T) {
 	assert.ErrorIs(t, errAggregate, err3)
 	assert.NotErrorIs(t, errAggregate, errUnrelated)
 }
+
+func BenchmarkDebugReport(b *testing.B) {
+	err := proxyError{
+		TraceErr: &TraceErr{
+			Err: &TraceErr{
+				Err: &BadParameterError{Message: `a < b & c > d "e"`},
+				Traces: Traces{
+					{Path: "/a/b/c", Line: 109, Func: "abcd"},
+					{Path: "/q/p/r", Line: 120, Func: "lkjh"},
+				},
+				Fields:   map[string]interface{}{"k<ey": "v<al&ue>"},
+				Messages: []string{`<script>alert("xss")</script>`},
+			},
+			Traces: Traces{
+				{Path: "/x/y/z", Line: 200, Func: "efgh"},
+			},
+		},
+	}
+
+	for i := 0; i < b.N; i++ {
+		report := err.DebugReport()
+		require.NotEmpty(b, report)
+	}
+}

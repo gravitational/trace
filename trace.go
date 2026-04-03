@@ -23,7 +23,6 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
-	"html"
 	"strings"
 	"sync/atomic"
 
@@ -321,19 +320,23 @@ func (e *TraceErr) DebugReport() string {
 	var sb strings.Builder
 	sb.WriteString("\nERROR REPORT:\nOriginal Error: ")
 	fmt.Fprintf(&sb, "%T ", e.Err)
-	sb.WriteString(html.EscapeString(e.Err.Error()))
+	htmlEscaper.WriteString(&sb, e.Err.Error())
 	sb.WriteRune('\n')
 	if len(e.Fields) > 0 {
 		sb.WriteString("Fields:\n")
 		for k, v := range e.Fields {
-			fmt.Fprintf(&sb, "  %s: %s\n", html.EscapeString(k), html.EscapeString(fmt.Sprint(v)))
+			sb.WriteString("  ")
+			htmlEscaper.WriteString(&sb, k)
+			sb.WriteString(": ")
+			htmlEscaper.WriteString(&sb, fmt.Sprint(v))
+			sb.WriteRune('\n')
 		}
 	}
 	sb.WriteString("Stack Trace:\n")
-	sb.WriteString(html.EscapeString(e.Traces.String()))
+	htmlEscaper.WriteString(&sb, e.Traces.String())
 	sb.WriteRune('\n')
 	sb.WriteString("User Message: ")
-	sb.WriteString(html.EscapeString(e.UserMessage()))
+	htmlEscaper.WriteString(&sb, e.UserMessage())
 
 	return sb.String()
 }
@@ -553,6 +556,14 @@ func wrapProxy(err error) Error {
 	}
 }
 
+var htmlEscaper = strings.NewReplacer(
+	`&`, "&amp;",
+	`'`, "&#39;", // "&#39;" is shorter than "&apos;" and apos was not in HTML until HTML5.
+	`<`, "&lt;",
+	`>`, "&gt;",
+	`"`, "&#34;", // "&#34;" is shorter than "&quot;".
+)
+
 // DebugReport formats the underlying error for display
 // Implements DebugReporter
 func (r proxyError) DebugReport() string {
@@ -563,27 +574,31 @@ func (r proxyError) DebugReport() string {
 
 	var sb strings.Builder
 	fmt.Fprintf(&sb, "\nERROR REPORT:\nOriginal Error: %T ", wrappedErr.Err)
-	sb.WriteString(html.EscapeString(wrappedErr.Err.Error()))
+	htmlEscaper.WriteString(&sb, wrappedErr.Err.Error())
 	sb.WriteRune('\n')
 	if len(wrappedErr.Fields) > 0 {
 		sb.WriteString("Fields:\n")
 		for k, v := range wrappedErr.Fields {
-			fmt.Fprintf(&sb, "  %s: %s\n", html.EscapeString(k), html.EscapeString(fmt.Sprint(v)))
+			sb.WriteString("  ")
+			htmlEscaper.WriteString(&sb, k)
+			sb.WriteString(": ")
+			htmlEscaper.WriteString(&sb, fmt.Sprint(v))
+			sb.WriteRune('\n')
 		}
 	}
 	sb.WriteString("Stack Trace:\n")
-	sb.WriteString(html.EscapeString(wrappedErr.Traces.String()))
+	htmlEscaper.WriteString(&sb, wrappedErr.Traces.String())
 	sb.WriteRune('\n')
 	if caught := r.TraceErr.Traces.String(); caught != "" {
 		sb.WriteString("Caught:\n")
-		sb.WriteString(html.EscapeString(caught))
+		htmlEscaper.WriteString(&sb, caught)
 		sb.WriteRune('\n')
 		sb.WriteString("User Message: ")
-		sb.WriteString(html.EscapeString(wrappedErr.UserMessage()))
+		htmlEscaper.WriteString(&sb, wrappedErr.UserMessage())
 		sb.WriteRune('\n')
 	} else {
 		sb.WriteString("User Message: ")
-		sb.WriteString(html.EscapeString(wrappedErr.UserMessage()))
+		htmlEscaper.WriteString(&sb, wrappedErr.UserMessage())
 	}
 
 	return sb.String()
