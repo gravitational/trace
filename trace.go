@@ -23,6 +23,7 @@ import (
 	"encoding/json"
 	"errors"
 	"fmt"
+	"reflect"
 	"strings"
 	"sync/atomic"
 
@@ -319,7 +320,8 @@ func (e *TraceErr) UserMessage() string {
 func (e *TraceErr) DebugReport() string {
 	var sb strings.Builder
 	sb.WriteString("\nERROR REPORT:\nOriginal Error: ")
-	fmt.Fprintf(&sb, "%T ", e.Err)
+	sb.WriteString(reflect.TypeOf(e.Err).String())
+	sb.WriteRune(' ')
 	htmlEscaper.WriteString(&sb, e.Err.Error())
 	sb.WriteRune('\n')
 	if len(e.Fields) > 0 {
@@ -573,7 +575,9 @@ func (r proxyError) DebugReport() string {
 	}
 
 	var sb strings.Builder
-	fmt.Fprintf(&sb, "\nERROR REPORT:\nOriginal Error: %T ", wrappedErr.Err)
+	sb.WriteString("\nERROR REPORT:\nOriginal Error: ")
+	sb.WriteString(reflect.TypeOf(wrappedErr.Err).String())
+	sb.WriteRune(' ')
 	htmlEscaper.WriteString(&sb, wrappedErr.Err.Error())
 	sb.WriteRune('\n')
 	if len(wrappedErr.Fields) > 0 {
