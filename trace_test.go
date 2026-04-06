@@ -17,9 +17,11 @@ limitations under the License.
 package trace
 
 import (
+	"bytes"
 	"context"
 	"errors"
 	"fmt"
+	"html/template"
 	"io"
 	"net/http"
 	"os"
@@ -30,6 +32,246 @@ import (
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+var (
+	reportTemplate     = template.Must(template.New("debugReport").Parse(reportTemplateText))
+	reportTemplateText = `
+ERROR REPORT:
+Original Error: {{.OrigErrType}} {{.OrigErrMessage}}
+{{if .Fields}}Fields:
+{{range $key, $value := .Fields}}  {{$key}}: {{$value}}
+{{end}}{{end}}Stack Trace:
+{{.StackTrace}}
+{{if .Caught}}Caught:
+{{.Caught}}
+User Message: {{.UserMessage}}
+{{else}}User Message: {{.UserMessage}}{{end}}`
+)
+
+type errorReport struct {
+	// OrigErrType specifies the error type as text
+	OrigErrType string
+	// OrigErrMessage specifies the original error's message
+	OrigErrMessage string
+	// Fields lists any additional fields attached to the error
+	Fields map[string]any
+	// StackTrace specifies the call stack
+	StackTrace string
+	// UserMessage is the user-facing message (if any)
+	UserMessage string
+	// Caught optionally specifies the stack trace where the error
+	// has been recorded after coming over the wire
+	Caught string
+}
+
+// OldProxyErrorDebugReport generates a DebugReport by leveraging the
+// [reportTemplateText] template. This was moved when the DebugReport
+// implementation changed to validate the output matches.
+func OldProxyErrorDebugReport(r proxyError) string {
+	wrappedErr, ok := r.TraceErr.Err.(*TraceErr)
+	if !ok {
+		return DebugReport(r.TraceErr)
+	}
+	var buf bytes.Buffer
+	err := reportTemplate.Execute(&buf, errorReport{
+		OrigErrType:    fmt.Sprintf("%T", wrappedErr.Err),
+		OrigErrMessage: wrappedErr.Err.Error(),
+		Fields:         wrappedErr.Fields,
+		StackTrace:     wrappedErr.Traces.String(),
+		UserMessage:    wrappedErr.UserMessage(),
+		Caught:         r.TraceErr.Traces.String(),
+	})
+	if err != nil {
+		return fmt.Sprint("error generating debug report: ", err.Error())
+	}
+	return buf.String()
+}
+
+// OldTraceErrorDebugReport generates a DebugReport by leveraging the
+// [reportTemplateText] template. This was moved when the DebugReport
+// implementation changed to validate the output matches.
+func OldTraceErrorDebugReport(e *TraceErr) string {
+	var buf bytes.Buffer
+	err := reportTemplate.Execute(&buf, errorReport{
+		OrigErrType:    fmt.Sprintf("%T", e.Err),
+		OrigErrMessage: e.Err.Error(),
+		Fields:         e.Fields,
+		StackTrace:     e.Traces.String(),
+		UserMessage:    e.UserMessage(),
+	})
+	if err != nil {
+		return fmt.Sprint("error generating debug report: ", err.Error())
+	}
+	return buf.String()
+}
+
+func TestProxyErrorDebugReport(t *testing.T) {
+	innerTraces := Traces{
+		{Path: "/a/b/c", Line: 109, Func: "abcd"},
+		{Path: "/q/p/r", Line: 120, Func: "lkjh"},
+	}
+	caughtTraces := Traces{
+		{Path: "/x/y/z", Line: 200, Func: "efgh"},
+	}
+	innerErr := &BadParameterError{Message: "bad param"}
+
+	tests := []struct {
+		name string
+		err  proxyError
+	}{
+		{
+			name: "basic",
+			err: proxyError{
+				TraceErr: &TraceErr{
+					Err: &TraceErr{
+						Err:    innerErr,
+						Traces: innerTraces,
+					},
+					Traces: caughtTraces,
+				},
+			},
+		},
+		{
+			name: "with fields",
+			err: proxyError{
+				TraceErr: &TraceErr{
+					Err: &TraceErr{
+						Err:    innerErr,
+						Traces: innerTraces,
+						Fields: map[string]interface{}{"key": "value"},
+					},
+					Traces: caughtTraces,
+				},
+			},
+		},
+		{
+			name: "no caught traces",
+			err: proxyError{
+				TraceErr: &TraceErr{
+					Err: &TraceErr{
+						Err:    innerErr,
+						Traces: innerTraces,
+					},
+				},
+			},
+		},
+		{
+			name: "with message",
+			err: proxyError{
+				TraceErr: &TraceErr{
+					Err: &TraceErr{
+						Err:     innerErr,
+						Traces:  innerTraces,
+						Message: "legacy user message",
+					},
+					Traces: caughtTraces,
+				},
+			},
+		},
+		{
+			name: "with messages",
+			err: proxyError{
+				TraceErr: &TraceErr{
+					Err: &TraceErr{
+						Err:      innerErr,
+						Traces:   innerTraces,
+						Messages: []string{"llama", "fox"},
+					},
+					Traces: caughtTraces,
+				},
+			},
+		},
+		{
+			name: "bare error",
+			err: proxyError{
+				TraceErr: &TraceErr{
+					Err:    errors.New("failure!"),
+					Traces: caughtTraces,
+				},
+			},
+		},
+		{
+			name: "html special characters",
+			err: proxyError{
+				TraceErr: &TraceErr{
+					Err: &TraceErr{
+						Err:      &BadParameterError{Message: `a < b & c > d "e"`},
+						Traces:   innerTraces,
+						Fields:   map[string]interface{}{"k<ey": "v<al&ue>"},
+						Messages: []string{`<script>alert("xss")</script>`},
+					},
+					Traces: caughtTraces,
+				},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			require.Equal(t, OldProxyErrorDebugReport(test.err), test.err.DebugReport())
+		})
+	}
+}
+
+func TestTraceErrDebugReport(t *testing.T) {
+	traces := Traces{
+		{Path: "/a/b/c", Line: 109, Func: "abcd"},
+		{Path: "/q/p/r", Line: 120, Func: "lkjh"},
+	}
+	innerErr := &BadParameterError{Message: "bad param"}
+
+	tests := []struct {
+		name string
+		err  *TraceErr
+	}{
+		{
+			name: "basic",
+			err: &TraceErr{
+				Err:    innerErr,
+				Traces: traces,
+			},
+		},
+		{
+			name: "with fields",
+			err: &TraceErr{
+				Err:    innerErr,
+				Traces: traces,
+				Fields: map[string]interface{}{"key": "value"},
+			},
+		},
+		{
+			name: "with message",
+			err: &TraceErr{
+				Err:     innerErr,
+				Traces:  traces,
+				Message: "legacy user message",
+			},
+		},
+		{
+			name: "with messages",
+			err: &TraceErr{
+				Err:      innerErr,
+				Traces:   traces,
+				Messages: []string{"msg1", "msg2"},
+			},
+		},
+		{
+			name: "html special characters",
+			err: &TraceErr{
+				Err:      &BadParameterError{Message: `a < b & c > d "e"`},
+				Traces:   traces,
+				Fields:   map[string]interface{}{"k<ey": "v<al&ue>"},
+				Messages: []string{`<script>alert("xss")</script>`},
+			},
+		},
+	}
+
+	for _, test := range tests {
+		t.Run(test.name, func(t *testing.T) {
+			require.Equal(t, OldTraceErrorDebugReport(test.err), test.err.DebugReport())
+		})
+	}
+}
 
 func TestEmpty(t *testing.T) {
 	assert.Equal(t, "", DebugReport(nil))
@@ -616,4 +858,28 @@ func TestAggregate_IsError(t *testing.T) {
 	assert.ErrorIs(t, errAggregate, err2)
 	assert.ErrorIs(t, errAggregate, err3)
 	assert.NotErrorIs(t, errAggregate, errUnrelated)
+}
+
+func BenchmarkDebugReport(b *testing.B) {
+	err := proxyError{
+		TraceErr: &TraceErr{
+			Err: &TraceErr{
+				Err: &BadParameterError{Message: `a < b & c > d "e"`},
+				Traces: Traces{
+					{Path: "/a/b/c", Line: 109, Func: "abcd"},
+					{Path: "/q/p/r", Line: 120, Func: "lkjh"},
+				},
+				Fields:   map[string]interface{}{"k<ey": "v<al&ue>"},
+				Messages: []string{`<script>alert("xss")</script>`},
+			},
+			Traces: Traces{
+				{Path: "/x/y/z", Line: 200, Func: "efgh"},
+			},
+		},
+	}
+
+	for i := 0; i < b.N; i++ {
+		report := err.DebugReport()
+		require.NotEmpty(b, report)
+	}
 }
