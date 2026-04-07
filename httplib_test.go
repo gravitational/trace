@@ -1,3 +1,5 @@
+//go:build !gravitational_trace.nocrypto
+
 /*
 Copyright 2020 Gravitational, Inc.
 

@@ -20,3 +20,18 @@ jobs:
           go-version-file: go.mod
       - name: Test
         run: go test -race ./...
+      - name: Test (nocrypto)
+        run: go test -race -tags gravitational_trace.nocrypto ./...
+  nocrypto:
+    name: Check nocrypto dependencies
+    runs-on: ubuntu-22.04
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version-file: go.mod
+      - name: Check dependencies with the nocrypto build tag
+        shell: bash # for pipefail
+        run: "go list -tags gravitational_trace.nocrypto -deps ./... | sort | tee /dev/stderr | (! grep -q -e ^crypto$ -e ^crypto/ )"

@@ -1,3 +1,5 @@
+//go:build gravitational_trace.nocrypto
+
 // Copyright 2026 Gravitational, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -12,31 +14,22 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package internal
+package trace
 
-// TraverseErr traverses the err error chain until fn returns true.
-// Traversal stops on nil errors, fn(nil) is never called.
-// Returns true if fn matched, false otherwise.
-func TraverseErr(err error, fn func(error) (ok bool)) (ok bool) {
-	if err == nil {
-		return false
-	}
+// these unexported error types are never constructed but they are referenced by
+// [ConvertSystemError]; in builds without the nocrypto tag they are aliases of
+// errors in [crypto/x509]
+type (
+	x509SystemRootsError      struct{}
+	x509UnknownAuthorityError struct{}
+)
 
-	if fn(err) {
-		return true
-	}
+// Error implements [error].
+func (x509SystemRootsError) Error() string {
+	return "trace.x509SystemRootsError (this is a bug)"
+}
 
-	switch err := err.(type) {
-	case interface{ Unwrap() error }:
-		return TraverseErr(err.Unwrap(), fn)
-
-	case interface{ Unwrap() []error }:
-		for _, err2 := range err.Unwrap() {
-			if TraverseErr(err2, fn) {
-				return true
-			}
-		}
-	}
-
-	return false
+// Error implements [error].
+func (x509UnknownAuthorityError) Error() string {
+	return "trace.x509UnknownAuthorityError (this is a bug)"
 }

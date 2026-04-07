@@ -17,7 +17,6 @@ limitations under the License.
 package trace
 
 import (
-	"crypto/x509"
 	"errors"
 	"fmt"
 	"io"
@@ -347,7 +346,7 @@ func ConvertSystemError(err error) error {
 		return newTrace(&AccessDeniedError{
 			Message: message,
 		})
-	case x509.SystemRootsError, x509.UnknownAuthorityError:
+	case x509SystemRootsError, x509UnknownAuthorityError:
 		return newTrace(&TrustError{Err: innerError})
 	}
 	if _, ok := innerError.(net.Error); ok {
