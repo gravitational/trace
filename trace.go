@@ -20,14 +20,13 @@ package trace
 
 import (
 	"bytes"
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
 	"reflect"
 	"strings"
 	"sync/atomic"
-
-	"golang.org/x/net/context"
 
 	"github.com/gravitational/trace/internal"
 )
