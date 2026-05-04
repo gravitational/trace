@@ -557,12 +557,16 @@ func wrapProxy(err error) Error {
 	}
 }
 
+// htmlEscaper matches the escaping done in [html/template] for text and quoted
+// attributes, which is slightly more than what [html.EscapeString] does.
 var htmlEscaper = strings.NewReplacer(
+	"\x00", "\uFFFD",
+	`"`, "&#34;", // "&#34;" is shorter than "&quot;".
 	`&`, "&amp;",
 	`'`, "&#39;", // "&#39;" is shorter than "&apos;" and apos was not in HTML until HTML5.
+	`+`, "&#43;",
 	`<`, "&lt;",
 	`>`, "&gt;",
-	`"`, "&#34;", // "&#34;" is shorter than "&quot;".
 )
 
 // DebugReport formats the underlying error for display
