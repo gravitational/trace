@@ -195,7 +195,7 @@ func TestProxyErrorDebugReport(t *testing.T) {
 			err: proxyError{
 				TraceErr: &TraceErr{
 					Err: &TraceErr{
-						Err:      &BadParameterError{Message: `a < b & c > d "e"`},
+						Err:      &BadParameterError{Message: `a < b & c > d "e" + '` + "\x00" + `'`},
 						Traces:   innerTraces,
 						Fields:   map[string]interface{}{"k<ey": "v<al&ue>"},
 						Messages: []string{`<script>alert("xss")</script>`},
@@ -258,7 +258,7 @@ func TestTraceErrDebugReport(t *testing.T) {
 		{
 			name: "html special characters",
 			err: &TraceErr{
-				Err:      &BadParameterError{Message: `a < b & c > d "e"`},
+				Err:      &BadParameterError{Message: `a < b & c > d "e" + '` + "\x00" + `'`},
 				Traces:   traces,
 				Fields:   map[string]interface{}{"k<ey": "v<al&ue>"},
 				Messages: []string{`<script>alert("xss")</script>`},
