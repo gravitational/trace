@@ -595,7 +595,7 @@ func TestStdlibCompat(t *testing.T) {
 func TestAggregate_StdlibCompat(t *testing.T) {
 	randomErr := errors.New("random")
 	bpMsg := "bad param"
-	bpErr := BadParameter(bpMsg)
+	bpErr := BadParameter("%s", bpMsg)
 	fooErr := errors.New("foo")
 
 	agg := Wrap(NewAggregate(Wrap(bpErr), fooErr))
@@ -691,8 +691,8 @@ func BenchmarkDebugReport(b *testing.B) {
 		},
 	}
 
-	for i := 0; i < b.N; i++ {
-		report := err.DebugReport()
-		require.NotEmpty(b, report)
+	b.ReportAllocs()
+	for b.Loop() {
+		err.DebugReport()
 	}
 }
