@@ -130,7 +130,7 @@ func unmarshalError(err error, responseBody []byte) error {
 			return errorOnInvalidJSON(err, responseBody)
 		}
 		return &TraceErr{
-			Traces:   raw.Traces,
+			traces:   raw.Traces,
 			Err:      err,
 			Message:  raw.Message,
 			Messages: raw.Messages,

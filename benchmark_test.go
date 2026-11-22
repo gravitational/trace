@@ -51,16 +51,16 @@ func BenchmarkTraceAccess(b *testing.B) {
 	b.Run("first", func(b *testing.B) {
 		b.ReportAllocs()
 		for b.Loop() {
-			_ = Wrap(baseErr).(*TraceErr).Traces
+			_ = Wrap(baseErr).(*TraceErr).GetTraces()
 		}
 	})
 
 	b.Run("cached", func(b *testing.B) {
 		err := Wrap(baseErr).(*TraceErr)
-		_ = err.Traces
+		_ = err.GetTraces()
 		b.ReportAllocs()
 		for b.Loop() {
-			_ = err.Traces
+			_ = err.GetTraces()
 		}
 	})
 }
@@ -155,7 +155,7 @@ func BenchmarkTraceDebugReport(b *testing.B) {
 		traces := benchmarkTraceEntries(count)
 		err := &TraceErr{
 			Err:      errors.New(`a < b & c > d "e"`),
-			Traces:   traces,
+			traces:   traces,
 			Fields:   map[string]any{"k<ey": "v<al&ue>"},
 			Messages: []string{`<script>alert("xss")</script>`},
 		}

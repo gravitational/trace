@@ -49,7 +49,7 @@ func TestReplyJSON(t *testing.T) {
 		},
 		{
 			desc: "trace error with stacktrace",
-			err:  &TraceErr{Err: errors.New("test error"), Traces: Traces{{Path: "A", Func: "B", Line: 1}}},
+			err:  NewTraceErr(errors.New("test error"), Traces{{Path: "A", Func: "B", Line: 1}}),
 		},
 	}
 

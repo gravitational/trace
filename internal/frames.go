@@ -22,6 +22,7 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
+	"sync"
 )
 
 // Trace stores structured trace entry, including file line and path
@@ -48,18 +49,44 @@ type FrameCursor struct {
 // Traces is a list of trace entries
 type Traces []Trace
 
+// maxStackDepth is the maximum number of frames captured for an error.
+const maxStackDepth = 32
+
+// Stack is a captured call stack. Program counters are captured eagerly so
+// they reflect the call site, but resolving them into file names, function
+// names, and line numbers is deferred until Traces because it is comparatively
+// expensive and most errors never have their traces inspected.
+type Stack struct {
+	pcs    [maxStackDepth]uintptr
+	n      int
+	once   sync.Once
+	traces Traces
+}
+
+// CaptureStack captures the current call stack with some deep frames skipped.
+func CaptureStack(skip int) *Stack {
+	s := &Stack{}
+	// +2 means that we also skip `CaptureStack` and `runtime.Callers` frames.
+	s.n = runtime.Callers(skip+2, s.pcs[:])
+	return s
+}
+
+// Traces resolves the captured stack on first use and returns the cached
+// result on subsequent calls. It is safe for concurrent use.
+func (s *Stack) Traces() Traces {
+	s.once.Do(func() {
+		s.traces = GetTracesFromCursor(FrameCursor{
+			Rest: runtime.CallersFrames(s.pcs[:s.n]),
+			N:    s.n,
+		})
+	})
+	return s.traces
+}
+
 // CaptureTraces gets the current stack trace with some deep frames skipped
 func CaptureTraces(skip int) Traces {
-	var buf [32]uintptr
-	// +2 means that we also skip `CaptureTraces` and `runtime.Callers` frames.
-	n := runtime.Callers(skip+2, buf[:])
-	pcs := buf[:n]
-	frames := runtime.CallersFrames(pcs)
-	cursor := FrameCursor{
-		Rest: frames,
-		N:    n,
-	}
-	return GetTracesFromCursor(cursor)
+	// +1 skips this function in addition to CaptureStack's own frames.
+	return CaptureStack(skip + 1).Traces()
 }
 
 // GetTracesFromCursor gets the current stack trace from a given cursor
