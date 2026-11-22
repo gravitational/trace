@@ -25,7 +25,9 @@ import (
 	"errors"
 	"fmt"
 	"reflect"
+	"strconv"
 	"strings"
+	"sync"
 	"sync/atomic"
 
 	"github.com/gravitational/trace/internal"
@@ -120,11 +122,12 @@ func UserMessageWithFields(err error) string {
 			return wrap.UserMessage()
 		}
 
-		var kvps []string
+		var sb strings.Builder
 		for k, v := range wrap.GetFields() {
-			kvps = append(kvps, fmt.Sprintf("%v=%q", k, v))
+			fmt.Fprintf(&sb, "%v=%q ", k, v)
 		}
-		return fmt.Sprintf("%v %v", strings.Join(kvps, " "), wrap.UserMessage())
+		sb.WriteString(wrap.UserMessage())
+		return sb.String()
 	}
 	return err.Error()
 }
@@ -299,14 +302,24 @@ func (e *TraceErr) UserMessage() string {
 		// Format all collected messages in the reverse order, with each error
 		// on its own line with appropriate indentation so they form a tree and
 		// it's easy to see the cause and effect.
-		var buf bytes.Buffer
-		fmt.Fprintln(&buf, e.Messages[len(e.Messages)-1])
-		index, indent := len(e.Messages)-1, 1
-		for ; index > 0; index, indent = index-1, indent+1 {
-			fmt.Fprintf(&buf, "%v%v\n", strings.Repeat("\t", indent), e.Messages[index-1])
+		cause := UserMessage(e.Err)
+		// Each message is followed by a newline and an increasing number of tabs.
+		size := len(cause) + len(e.Messages) + len(e.Messages)*(len(e.Messages)+1)/2
+		for _, message := range e.Messages {
+			size += len(message)
 		}
-		fmt.Fprintf(&buf, "%v%v", strings.Repeat("\t", indent), UserMessage(e.Err))
-		return buf.String()
+
+		var sb strings.Builder
+		sb.Grow(size)
+		for i := len(e.Messages) - 1; i >= 0; i-- {
+			sb.WriteString(e.Messages[i])
+			sb.WriteByte('\n')
+			for range len(e.Messages) - i {
+				sb.WriteByte('\t')
+			}
+		}
+		sb.WriteString(cause)
+		return sb.String()
 	}
 	if e.Message != "" {
 		// For backwards compatibility return the old user message if it's present.
@@ -315,31 +328,30 @@ func (e *TraceErr) UserMessage() string {
 	return UserMessage(e.Err)
 }
 
-// DebugReport returns developer-friendly error report
-func (e *TraceErr) DebugReport() string {
-	var sb strings.Builder
-	sb.WriteString("\nERROR REPORT:\nOriginal Error: ")
-	sb.WriteString(reflect.TypeOf(e.Err).String())
-	sb.WriteRune(' ')
-	htmlEscaper.WriteString(&sb, e.Err.Error())
-	sb.WriteRune('\n')
-	if len(e.Fields) > 0 {
-		sb.WriteString("Fields:\n")
-		for k, v := range e.Fields {
-			sb.WriteString("  ")
-			htmlEscaper.WriteString(&sb, k)
-			sb.WriteString(": ")
-			htmlEscaper.WriteString(&sb, fmt.Sprint(v))
-			sb.WriteRune('\n')
+// writeEscapedUserMessage writes the HTML-escaped equivalent of e.UserMessage
+// to buf without building an intermediate string.
+func writeEscapedUserMessage(buf *bytes.Buffer, e *TraceErr) {
+	if len(e.Messages) == 0 && e.Message != "" {
+		writeEscaped(buf, e.Message)
+		return
+	}
+	for i := len(e.Messages) - 1; i >= 0; i-- {
+		writeEscaped(buf, e.Messages[i])
+		buf.WriteByte('\n')
+		for range len(e.Messages) - i {
+			buf.WriteByte('\t')
 		}
 	}
-	sb.WriteString("Stack Trace:\n")
-	htmlEscaper.WriteString(&sb, e.Traces.String())
-	sb.WriteRune('\n')
-	sb.WriteString("User Message: ")
-	htmlEscaper.WriteString(&sb, e.UserMessage())
+	if cause, ok := e.Err.(*TraceErr); ok {
+		writeEscapedUserMessage(buf, cause)
+	} else {
+		writeEscaped(buf, UserMessage(e.Err))
+	}
+}
 
-	return sb.String()
+// DebugReport returns developer-friendly error report
+func (e *TraceErr) DebugReport() string {
+	return debugReport(e, nil)
 }
 
 // Error returns user-friendly error message when not in debug mode
@@ -413,9 +425,21 @@ type Error interface {
 func WithUserMessage(err Error, formatArg interface{}, rest ...interface{}) *TraceErr {
 	errCopy := err.Clone()
 
-	newMessage := fmt.Sprintf(fmt.Sprintf("%v", formatArg), rest...)
-	errCopy.Messages = append(errCopy.Messages, newMessage)
+	format, ok := formatArg.(string)
+	if !ok {
+		format = fmt.Sprint(formatArg)
+	}
+	errCopy.Messages = append(errCopy.Messages, formatString(format, rest))
 	return errCopy
+}
+
+// formatString avoids invoking the formatter for the common case of a literal
+// message while retaining fmt.Sprintf's behavior for strings containing verbs.
+func formatString(format string, args []any) string {
+	if len(args) == 0 && !strings.ContainsRune(format, '%') {
+		return format
+	}
+	return fmt.Sprintf(format, args...)
 }
 
 // WithField adds additional field information to the error.
@@ -576,39 +600,87 @@ func (r proxyError) DebugReport() string {
 	if !ok {
 		return DebugReport(r.TraceErr)
 	}
+	return debugReport(wrappedErr, r.TraceErr.Traces)
+}
 
-	var sb strings.Builder
-	sb.WriteString("\nERROR REPORT:\nOriginal Error: ")
-	sb.WriteString(reflect.TypeOf(wrappedErr.Err).String())
-	sb.WriteRune(' ')
-	htmlEscaper.WriteString(&sb, wrappedErr.Err.Error())
-	sb.WriteRune('\n')
-	if len(wrappedErr.Fields) > 0 {
-		sb.WriteString("Fields:\n")
-		for k, v := range wrappedErr.Fields {
-			sb.WriteString("  ")
-			htmlEscaper.WriteString(&sb, k)
-			sb.WriteString(": ")
-			htmlEscaper.WriteString(&sb, fmt.Sprint(v))
-			sb.WriteRune('\n')
+func debugReport(err *TraceErr, caught Traces) string {
+	buf := getBuffer()
+	defer putBuffer(buf)
+
+	buf.WriteString("\nERROR REPORT:\nOriginal Error: ")
+	buf.WriteString(reflect.TypeOf(err.Err).String())
+	buf.WriteByte(' ')
+	writeEscaped(buf, err.Err.Error())
+	buf.WriteByte('\n')
+	if len(err.Fields) > 0 {
+		buf.WriteString("Fields:\n")
+		for k, v := range err.Fields {
+			buf.WriteString("  ")
+			writeEscaped(buf, k)
+			buf.WriteString(": ")
+			value, ok := v.(string)
+			if !ok {
+				value = fmt.Sprint(v)
+			}
+			writeEscaped(buf, value)
+			buf.WriteByte('\n')
 		}
 	}
-	sb.WriteString("Stack Trace:\n")
-	htmlEscaper.WriteString(&sb, wrappedErr.Traces.String())
-	sb.WriteRune('\n')
-	if caught := r.TraceErr.Traces.String(); caught != "" {
-		sb.WriteString("Caught:\n")
-		htmlEscaper.WriteString(&sb, caught)
-		sb.WriteRune('\n')
-		sb.WriteString("User Message: ")
-		htmlEscaper.WriteString(&sb, wrappedErr.UserMessage())
-		sb.WriteRune('\n')
-	} else {
-		sb.WriteString("User Message: ")
-		htmlEscaper.WriteString(&sb, wrappedErr.UserMessage())
+	buf.WriteString("Stack Trace:\n")
+	writeEscapedTraces(buf, err.Traces)
+	buf.WriteByte('\n')
+	if len(caught) > 0 {
+		buf.WriteString("Caught:\n")
+		writeEscapedTraces(buf, caught)
+		buf.WriteByte('\n')
+	}
+	buf.WriteString("User Message: ")
+	writeEscapedUserMessage(buf, err)
+	if len(caught) > 0 {
+		buf.WriteByte('\n')
 	}
 
-	return sb.String()
+	return buf.String()
+}
+
+// writeEscapedTraces writes traces in the same format as Traces.String,
+// HTML-escaping paths and function names.
+func writeEscapedTraces(buf *bytes.Buffer, traces Traces) {
+	for i, t := range traces {
+		if i > 0 {
+			buf.WriteByte('\n')
+		}
+		buf.WriteByte('\t')
+		writeEscaped(buf, t.Path)
+		buf.WriteByte(':')
+		buf.Write(strconv.AppendInt(buf.AvailableBuffer(), int64(t.Line), 10))
+		buf.WriteByte(' ')
+		writeEscaped(buf, t.Func)
+	}
+}
+
+func writeEscaped(buf *bytes.Buffer, s string) {
+	htmlEscaper.WriteString(buf, s)
+}
+
+// buffers holds reusable buffers so debug reports need only one allocation for
+// the returned string.
+var buffers = sync.Pool{New: func() any { return new(bytes.Buffer) }}
+
+// maxPooledBufferSize prevents unusually large reports from keeping large
+// buffers alive in the pool.
+const maxPooledBufferSize = 64 << 10
+
+func getBuffer() *bytes.Buffer {
+	return buffers.Get().(*bytes.Buffer)
+}
+
+func putBuffer(buf *bytes.Buffer) {
+	if buf.Cap() > maxPooledBufferSize {
+		return
+	}
+	buf.Reset()
+	buffers.Put(buf)
 }
 
 // GoString formats this trace object for use with
