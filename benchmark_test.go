@@ -22,6 +22,49 @@ import (
 	"testing"
 )
 
+func BenchmarkWrapUnconsumed(b *testing.B) {
+	baseErr := errors.New("failure")
+	b.ReportAllocs()
+	for b.Loop() {
+		_ = Wrap(baseErr)
+	}
+}
+
+func BenchmarkWrapDebugReport(b *testing.B) {
+	baseErr := errors.New("failure")
+	b.ReportAllocs()
+	for b.Loop() {
+		_ = DebugReport(Wrap(baseErr))
+	}
+}
+
+func BenchmarkBadParameterUnconsumed(b *testing.B) {
+	b.ReportAllocs()
+	for b.Loop() {
+		_ = BadParameter("literal failure")
+	}
+}
+
+func BenchmarkTraceAccess(b *testing.B) {
+	baseErr := errors.New("failure")
+
+	b.Run("first", func(b *testing.B) {
+		b.ReportAllocs()
+		for b.Loop() {
+			_ = Wrap(baseErr).(*TraceErr).Traces
+		}
+	})
+
+	b.Run("cached", func(b *testing.B) {
+		err := Wrap(baseErr).(*TraceErr)
+		_ = err.Traces
+		b.ReportAllocs()
+		for b.Loop() {
+			_ = err.Traces
+		}
+	})
+}
+
 func BenchmarkWithUserMessage(b *testing.B) {
 	baseErr := Wrap(errors.New("failure"))
 
