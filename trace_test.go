@@ -297,8 +297,8 @@ func TestLazyTraceCapture(t *testing.T) {
 	traces := err.GetTraces()
 	require.NotEmpty(t, traces)
 	require.Equal(t, "trace.TestLazyTraceCapture", traces.FuncName())
-	require.Same(t, &traces[0], &err.GetTraces()[0], "resolved traces should be cached")
-	require.Same(t, &traces[0], &err.Clone().GetTraces()[0], "clones should share the captured stack")
+	require.Equal(t, traces, err.GetTraces())
+	require.Equal(t, traces, err.Clone().GetTraces())
 
 	require.Equal(t, traces.Func(), err.Func())
 	require.Equal(t, traces.FuncName(), err.FuncName())

@@ -244,8 +244,8 @@ type TraceErr struct {
 	// traces holds stack trace entries provided to NewTraceErr.
 	traces Traces
 	// stack holds the stack captured when the error was created by this
-	// package. It is resolved into traces on first use by GetTraces.
-	stack *internal.Stack
+	// package. It is resolved into traces when accessed by GetTraces.
+	stack internal.Stack
 	// Message is an optional message that can be wrapped with the original error.
 	//
 	// This field is obsolete, replaced by messages list below.

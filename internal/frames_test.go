@@ -37,17 +37,54 @@ func TestGetTracesCapacityDoesNotLimitFrames(t *testing.T) {
 	}
 }
 
-func TestCaptureStackResolvesLazily(t *testing.T) {
+func TestCaptureStackDepth(t *testing.T) {
+	baseDepth := len(captureDeepStack(0))
+	tests := []struct {
+		name  string
+		depth int
+	}{
+		{
+			name:  "no recursion",
+			depth: 0,
+		},
+		{
+			name:  "shallow",
+			depth: 1,
+		},
+		{
+			name:  "initial capacity",
+			depth: initialStackDepth,
+		},
+		{
+			name:  "maximum capacity",
+			depth: maxStackDepth,
+		},
+	}
+
+	for _, test := range tests {
+		stack := captureDeepStack(test.depth)
+		want := min(baseDepth+test.depth, maxStackDepth)
+		if len(stack) != want {
+			t.Errorf("%s: captured %d frames, want %d", test.name, len(stack), want)
+		}
+	}
+}
+
+func captureDeepStack(depth int) Stack {
+	if depth == 0 {
+		return CaptureStack(0)
+	}
+	return captureDeepStack(depth - 1)
+}
+
+func TestCapturedStackTraces(t *testing.T) {
 	stack := CaptureStack(0)
-	if stack.traces != nil {
-		t.Fatal("traces resolved before use")
+	if len(stack) == 0 {
+		t.Fatal("stack is empty")
 	}
 
 	traces := stack.Traces()
-	if got := traces.FuncName(); got != "internal.TestCaptureStackResolvesLazily" {
-		t.Fatalf("first frame = %q, want internal.TestCaptureStackResolvesLazily", got)
-	}
-	if &stack.Traces()[0] != &traces[0] {
-		t.Fatal("resolved traces were not cached")
+	if got := traces.FuncName(); got != "internal.TestCapturedStackTraces" {
+		t.Fatalf("first frame = %q, want internal.TestCapturedStackTraces", got)
 	}
 }

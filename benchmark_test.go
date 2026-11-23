@@ -55,9 +55,8 @@ func BenchmarkTraceAccess(b *testing.B) {
 		}
 	})
 
-	b.Run("cached", func(b *testing.B) {
+	b.Run("repeated", func(b *testing.B) {
 		err := Wrap(baseErr).(*TraceErr)
-		_ = err.GetTraces()
 		b.ReportAllocs()
 		for b.Loop() {
 			_ = err.GetTraces()

@@ -22,7 +22,6 @@ import (
 	"runtime"
 	"strconv"
 	"strings"
-	"sync"
 )
 
 // Trace stores structured trace entry, including file line and path
@@ -38,35 +37,35 @@ type Trace struct {
 // Traces is a list of trace entries
 type Traces []Trace
 
-// maxStackDepth is the maximum number of frames captured for an error.
-const maxStackDepth = 32
+const (
+	// initialStackDepth is the number of program counters allocated for typical
+	// stacks before retrying with the maximum size.
+	initialStackDepth = 16
+	// maxStackDepth is the maximum number of frames captured for an error.
+	maxStackDepth = 32
+)
 
 // Stack is a captured call stack. Program counters are captured eagerly so
 // they reflect the call site, but resolving them into file names, function
 // names, and line numbers is deferred until Traces because it is comparatively
 // expensive and most errors never have their traces inspected.
-type Stack struct {
-	pcs    [maxStackDepth]uintptr
-	n      int
-	once   sync.Once
-	traces Traces
-}
+type Stack []uintptr
 
 // CaptureStack captures the current call stack with some deep frames skipped.
-func CaptureStack(skip int) *Stack {
-	s := &Stack{}
+func CaptureStack(skip int) Stack {
+	pcs := make(Stack, initialStackDepth)
 	// +2 means that we also skip `CaptureStack` and `runtime.Callers` frames.
-	s.n = runtime.Callers(skip+2, s.pcs[:])
-	return s
+	n := runtime.Callers(skip+2, pcs)
+	if n == len(pcs) {
+		pcs = make(Stack, maxStackDepth)
+		n = runtime.Callers(skip+2, pcs)
+	}
+	return pcs[:n]
 }
 
-// Traces resolves the captured stack on first use and returns the cached
-// result on subsequent calls. It is safe for concurrent use.
-func (s *Stack) Traces() Traces {
-	s.once.Do(func() {
-		s.traces = getTraces(runtime.CallersFrames(s.pcs[:s.n]), s.n)
-	})
-	return s.traces
+// Traces resolves the captured stack.
+func (s Stack) Traces() Traces {
+	return getTraces(runtime.CallersFrames(s), len(s))
 }
 
 // CaptureTraces gets the current stack trace with some deep frames skipped
