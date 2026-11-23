@@ -35,17 +35,6 @@ type Trace struct {
 	Line int `json:"line"`
 }
 
-// FrameCursor stores the position in a call stack
-type FrameCursor struct {
-	// Current specifies the current stack frame.
-	// if omitted, rest contains the complete stack
-	Current *runtime.Frame
-	// Rest specifies the rest of stack frames to explore
-	Rest *runtime.Frames
-	// N specifies the total number of stack frames
-	N int
-}
-
 // Traces is a list of trace entries
 type Traces []Trace
 
@@ -75,10 +64,7 @@ func CaptureStack(skip int) *Stack {
 // result on subsequent calls. It is safe for concurrent use.
 func (s *Stack) Traces() Traces {
 	s.once.Do(func() {
-		s.traces = GetTracesFromCursor(FrameCursor{
-			Rest: runtime.CallersFrames(s.pcs[:s.n]),
-			N:    s.n,
-		})
+		s.traces = getTraces(runtime.CallersFrames(s.pcs[:s.n]), s.n)
 	})
 	return s.traces
 }
@@ -89,20 +75,15 @@ func CaptureTraces(skip int) Traces {
 	return CaptureStack(skip + 1).Traces()
 }
 
-// GetTracesFromCursor gets the current stack trace from a given cursor
-func GetTracesFromCursor(cursor FrameCursor) Traces {
-	traces := make(Traces, 0, cursor.N)
-	if cursor.Current != nil {
-		traces = append(traces, frameToTrace(*cursor.Current))
-	}
-	for i := 0; i < cursor.N; i++ {
-		frame, more := cursor.Rest.Next()
+func getTraces(frames *runtime.Frames, capacity int) Traces {
+	traces := make(Traces, 0, capacity)
+	for {
+		frame, more := frames.Next()
 		traces = append(traces, frameToTrace(frame))
 		if !more {
-			break
+			return traces
 		}
 	}
-	return traces
 }
 
 func frameToTrace(frame runtime.Frame) Trace {

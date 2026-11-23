@@ -16,7 +16,26 @@ limitations under the License.
 
 package internal
 
-import "testing"
+import (
+	"runtime"
+	"testing"
+)
+
+func TestGetTracesCapacityDoesNotLimitFrames(t *testing.T) {
+	var pcs [32]uintptr
+	n := runtime.Callers(0, pcs[:])
+
+	frames := runtime.CallersFrames(pcs[:n])
+	want := 0
+	for more := true; more; want++ {
+		_, more = frames.Next()
+	}
+
+	traces := getTraces(runtime.CallersFrames(pcs[:n]), 1)
+	if len(traces) != want {
+		t.Fatalf("got %d traces, want %d", len(traces), want)
+	}
+}
 
 func TestCaptureStackResolvesLazily(t *testing.T) {
 	stack := CaptureStack(0)
