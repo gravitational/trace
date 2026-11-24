@@ -150,20 +150,12 @@ func BenchmarkUserMessageWithFields(b *testing.B) {
 }
 
 func BenchmarkTraceDebugReport(b *testing.B) {
-	for _, count := range []int{1, 8, 32} {
-		traces := benchmarkTraceEntries(count)
-		err := &TraceErr{
-			Err:      errors.New(`a < b & c > d "e"`),
-			traces:   traces,
-			Fields:   map[string]any{"k<ey": "v<al&ue>"},
-			Messages: []string{`<script>alert("xss")</script>`},
-		}
-		b.Run(fmt.Sprintf("traces-%d", count), func(b *testing.B) {
-			b.ReportAllocs()
-			for b.Loop() {
-				err.DebugReport()
-			}
-		})
+	err := newTrace(errors.New(`a < b & c > d "e"`))
+	err.Fields = map[string]any{"k<ey": "v<al&ue>"}
+	err.Messages = []string{`<script>alert("xss")</script>`}
+	b.ReportAllocs()
+	for b.Loop() {
+		err.DebugReport()
 	}
 }
 

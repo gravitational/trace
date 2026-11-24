@@ -65,6 +65,9 @@ func CaptureStack(skip int) Stack {
 
 // Traces resolves the captured stack.
 func (s Stack) Traces() Traces {
+	if len(s) == 0 {
+		return nil
+	}
 	return getTraces(runtime.CallersFrames(s), len(s))
 }
 

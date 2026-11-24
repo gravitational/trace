@@ -49,7 +49,7 @@ func TestReplyJSON(t *testing.T) {
 		},
 		{
 			desc: "trace error with stacktrace",
-			err:  NewTraceErr(errors.New("test error"), Traces{{Path: "A", Func: "B", Line: 1}}),
+			err:  Wrap(errors.New("test error")),
 		},
 	}
 
@@ -61,6 +61,17 @@ func TestReplyJSON(t *testing.T) {
 			require.JSONEq(t, expectedErrorResponse, recorder.Body.String())
 		})
 	}
+}
+
+func TestUnmarshalErrorIgnoresTraces(t *testing.T) {
+	err := unmarshalError(&AccessDeniedError{}, []byte(`{
+		"error": {"message": "denied"},
+		"traces": [{"path": "/remote/file.go", "func": "remote.fn", "line": 42}]
+	}`))
+
+	traceErr, ok := err.(*TraceErr)
+	require.True(t, ok)
+	require.Empty(t, traceErr.GetTraces())
 }
 
 func TestUnmarshalError(t *testing.T) {

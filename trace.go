@@ -218,13 +218,6 @@ type Traces = internal.Traces
 
 type Trace = internal.Trace
 
-// NewTraceErr returns an error with the provided stack traces. Most callers
-// should use Wrap, which captures the current stack. NewTraceErr is intended
-// for errors whose traces were captured elsewhere, such as decoded errors.
-func NewTraceErr(err error, traces Traces) *TraceErr {
-	return &TraceErr{Err: err, traces: traces}
-}
-
 // MarshalJSON marshals this error as JSON-encoded payload
 func (e *TraceErr) MarshalJSON() ([]byte, error) {
 	if e == nil {
@@ -241,8 +234,6 @@ func (e *TraceErr) MarshalJSON() ([]byte, error) {
 type TraceErr struct {
 	// Err is the underlying error that TraceErr wraps
 	Err error `json:"error"`
-	// traces holds stack trace entries provided to NewTraceErr.
-	traces Traces
 	// stack holds the stack captured when the error was created by this
 	// package. It is resolved into traces when accessed by GetTraces.
 	stack internal.Stack
@@ -269,8 +260,6 @@ func (r *RawTrace) Error() string {
 type RawTrace struct {
 	// Err specifies the original error
 	Err json.RawMessage `json:"error,omitempty"`
-	// Traces lists the stack traces at the moment the error was recorded
-	Traces `json:"traces,omitempty"`
 	// Message specifies the optional user-facing message
 	Message string `json:"message,omitempty"`
 	// Messages is a list of user messages added to this error.
@@ -286,7 +275,6 @@ func (e *TraceErr) Clone() *TraceErr {
 
 	tr := &TraceErr{
 		Err:     e.Err,
-		traces:  e.traces,
 		stack:   e.stack,
 		Message: e.Message,
 	}
@@ -374,10 +362,7 @@ func (e *TraceErr) GetFields() map[string]interface{} {
 
 // GetTraces returns the stack trace entries for the error.
 func (e *TraceErr) GetTraces() Traces {
-	if e.stack != nil {
-		return e.stack.Traces()
-	}
-	return e.traces
+	return e.stack.Traces()
 }
 
 // Func returns the function name where the error was created.
