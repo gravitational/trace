@@ -77,9 +77,9 @@ func OldProxyErrorDebugReport(r proxyError) string {
 		OrigErrType:    fmt.Sprintf("%T", wrappedErr.Err),
 		OrigErrMessage: wrappedErr.Err.Error(),
 		Fields:         wrappedErr.Fields,
-		StackTrace:     wrappedErr.Traces.String(),
+		StackTrace:     wrappedErr.GetTraces().String(),
 		UserMessage:    wrappedErr.UserMessage(),
-		Caught:         r.TraceErr.Traces.String(),
+		Caught:         r.TraceErr.GetTraces().String(),
 	})
 	if err != nil {
 		return fmt.Sprint("error generating debug report: ", err.Error())
@@ -96,7 +96,7 @@ func OldTraceErrorDebugReport(e *TraceErr) string {
 		OrigErrType:    fmt.Sprintf("%T", e.Err),
 		OrigErrMessage: e.Err.Error(),
 		Fields:         e.Fields,
-		StackTrace:     e.Traces.String(),
+		StackTrace:     e.GetTraces().String(),
 		UserMessage:    e.UserMessage(),
 	})
 	if err != nil {
@@ -106,169 +106,78 @@ func OldTraceErrorDebugReport(e *TraceErr) string {
 }
 
 func TestProxyErrorDebugReport(t *testing.T) {
-	innerTraces := Traces{
-		{Path: "/a/b/c", Line: 109, Func: "abcd"},
-		{Path: "/q/p/r", Line: 120, Func: "lkjh"},
-	}
-	caughtTraces := Traces{
-		{Path: "/x/y/z", Line: 200, Func: "efgh"},
-	}
-	innerErr := &BadParameterError{Message: "bad param"}
-
 	tests := []struct {
-		name string
-		err  proxyError
+		name     string
+		err      error
+		fields   map[string]interface{}
+		message  string
+		messages []string
+		caught   bool
+		bare     bool
 	}{
+		{name: "basic", err: &BadParameterError{Message: "bad param"}, caught: true},
+		{name: "with fields", err: &BadParameterError{Message: "bad param"}, fields: map[string]interface{}{"key": "value"}, caught: true},
+		{name: "no caught traces", err: &BadParameterError{Message: "bad param"}},
+		{name: "with message", err: &BadParameterError{Message: "bad param"}, message: "legacy user message", caught: true},
+		{name: "with messages", err: &BadParameterError{Message: "bad param"}, messages: []string{"llama", "fox"}, caught: true},
+		{name: "bare error", err: errors.New("failure!"), caught: true, bare: true},
 		{
-			name: "basic",
-			err: proxyError{
-				TraceErr: &TraceErr{
-					Err: &TraceErr{
-						Err:    innerErr,
-						Traces: innerTraces,
-					},
-					Traces: caughtTraces,
-				},
-			},
-		},
-		{
-			name: "with fields",
-			err: proxyError{
-				TraceErr: &TraceErr{
-					Err: &TraceErr{
-						Err:    innerErr,
-						Traces: innerTraces,
-						Fields: map[string]interface{}{"key": "value"},
-					},
-					Traces: caughtTraces,
-				},
-			},
-		},
-		{
-			name: "no caught traces",
-			err: proxyError{
-				TraceErr: &TraceErr{
-					Err: &TraceErr{
-						Err:    innerErr,
-						Traces: innerTraces,
-					},
-				},
-			},
-		},
-		{
-			name: "with message",
-			err: proxyError{
-				TraceErr: &TraceErr{
-					Err: &TraceErr{
-						Err:     innerErr,
-						Traces:  innerTraces,
-						Message: "legacy user message",
-					},
-					Traces: caughtTraces,
-				},
-			},
-		},
-		{
-			name: "with messages",
-			err: proxyError{
-				TraceErr: &TraceErr{
-					Err: &TraceErr{
-						Err:      innerErr,
-						Traces:   innerTraces,
-						Messages: []string{"llama", "fox"},
-					},
-					Traces: caughtTraces,
-				},
-			},
-		},
-		{
-			name: "bare error",
-			err: proxyError{
-				TraceErr: &TraceErr{
-					Err:    errors.New("failure!"),
-					Traces: caughtTraces,
-				},
-			},
-		},
-		{
-			name: "html special characters",
-			err: proxyError{
-				TraceErr: &TraceErr{
-					Err: &TraceErr{
-						Err:      &BadParameterError{Message: `a < b & c > d "e" + '` + "\x00" + `'`},
-						Traces:   innerTraces,
-						Fields:   map[string]interface{}{"k<ey": "v<al&ue>"},
-						Messages: []string{`<script>alert("xss")</script>`},
-					},
-					Traces: caughtTraces,
-				},
-			},
+			name:     "html special characters",
+			err:      &BadParameterError{Message: `a < b & c > d "e" + '` + "\x00" + `'`},
+			fields:   map[string]interface{}{"k<ey": "v<al&ue>"},
+			messages: []string{`<script>alert("xss")</script>`},
+			caught:   true,
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			require.Equal(t, OldProxyErrorDebugReport(test.err), test.err.DebugReport())
+			var outer *TraceErr
+			if test.bare {
+				outer = newTrace(test.err)
+			} else {
+				inner := newTrace(test.err)
+				inner.Fields = test.fields
+				inner.Message = test.message
+				inner.Messages = test.messages
+				outer = &TraceErr{Err: inner}
+				if test.caught {
+					outer = newTrace(inner)
+				}
+			}
+			err := proxyError{TraceErr: outer}
+			require.Equal(t, OldProxyErrorDebugReport(err), err.DebugReport())
 		})
 	}
 }
 
 func TestTraceErrDebugReport(t *testing.T) {
-	traces := Traces{
-		{Path: "/a/b/c", Line: 109, Func: "abcd"},
-		{Path: "/q/p/r", Line: 120, Func: "lkjh"},
-	}
-	innerErr := &BadParameterError{Message: "bad param"}
-
 	tests := []struct {
-		name string
-		err  *TraceErr
+		name     string
+		err      error
+		fields   map[string]interface{}
+		message  string
+		messages []string
 	}{
+		{name: "basic", err: &BadParameterError{Message: "bad param"}},
+		{name: "with fields", err: &BadParameterError{Message: "bad param"}, fields: map[string]interface{}{"key": "value"}},
+		{name: "with message", err: &BadParameterError{Message: "bad param"}, message: "legacy user message"},
+		{name: "with messages", err: &BadParameterError{Message: "bad param"}, messages: []string{"msg1", "msg2"}},
 		{
-			name: "basic",
-			err: &TraceErr{
-				Err:    innerErr,
-				Traces: traces,
-			},
-		},
-		{
-			name: "with fields",
-			err: &TraceErr{
-				Err:    innerErr,
-				Traces: traces,
-				Fields: map[string]interface{}{"key": "value"},
-			},
-		},
-		{
-			name: "with message",
-			err: &TraceErr{
-				Err:     innerErr,
-				Traces:  traces,
-				Message: "legacy user message",
-			},
-		},
-		{
-			name: "with messages",
-			err: &TraceErr{
-				Err:      innerErr,
-				Traces:   traces,
-				Messages: []string{"msg1", "msg2"},
-			},
-		},
-		{
-			name: "html special characters",
-			err: &TraceErr{
-				Err:      &BadParameterError{Message: `a < b & c > d "e" + '` + "\x00" + `'`},
-				Traces:   traces,
-				Fields:   map[string]interface{}{"k<ey": "v<al&ue>"},
-				Messages: []string{`<script>alert("xss")</script>`},
-			},
+			name:     "html special characters",
+			err:      &BadParameterError{Message: `a < b & c > d "e" + '` + "\x00" + `'`},
+			fields:   map[string]interface{}{"k<ey": "v<al&ue>"},
+			messages: []string{`<script>alert("xss")</script>`},
 		},
 	}
 
 	for _, test := range tests {
 		t.Run(test.name, func(t *testing.T) {
-			require.Equal(t, OldTraceErrorDebugReport(test.err), test.err.DebugReport())
+			err := newTrace(test.err)
+			err.Fields = test.fields
+			err.Message = test.message
+			err.Messages = test.messages
+			require.Equal(t, OldTraceErrorDebugReport(err), err.DebugReport())
 		})
 	}
 }
@@ -288,6 +197,22 @@ func TestWrap(t *testing.T) {
 	assert.NotRegexp(t, ".*trace.go.*", line(DebugReport(err)))
 	assert.NotRegexp(t, ".*trace_test.go.*", line(UserMessage(err)))
 	assert.Regexp(t, ".*param.*", line(UserMessage(err)))
+}
+
+func TestLazyTraceCapture(t *testing.T) {
+	err := Wrap(errors.New("failure")).(*TraceErr)
+	require.NotNil(t, err.stack)
+
+	traces := err.GetTraces()
+	require.NotEmpty(t, traces)
+	require.Equal(t, "trace.TestLazyTraceCapture", traces.FuncName())
+	require.Equal(t, traces, err.GetTraces())
+	require.Equal(t, traces, err.Clone().GetTraces())
+
+	require.Equal(t, traces.Func(), err.Func())
+	require.Equal(t, traces.FuncName(), err.FuncName())
+	require.Equal(t, traces.Loc(), err.Loc())
+	require.Equal(t, traces.String(), err.String())
 }
 
 func TestOrigError(t *testing.T) {
@@ -690,22 +615,10 @@ func TestAggregate_IsError(t *testing.T) {
 }
 
 func BenchmarkDebugReport(b *testing.B) {
-	err := proxyError{
-		TraceErr: &TraceErr{
-			Err: &TraceErr{
-				Err: &BadParameterError{Message: `a < b & c > d "e"`},
-				Traces: Traces{
-					{Path: "/a/b/c", Line: 109, Func: "abcd"},
-					{Path: "/q/p/r", Line: 120, Func: "lkjh"},
-				},
-				Fields:   map[string]interface{}{"k<ey": "v<al&ue>"},
-				Messages: []string{`<script>alert("xss")</script>`},
-			},
-			Traces: Traces{
-				{Path: "/x/y/z", Line: 200, Func: "efgh"},
-			},
-		},
-	}
+	inner := newTrace(&BadParameterError{Message: `a < b & c > d "e"`})
+	inner.Fields = map[string]interface{}{"k<ey": "v<al&ue>"}
+	inner.Messages = []string{`<script>alert("xss")</script>`}
+	err := proxyError{TraceErr: newTrace(inner)}
 
 	b.ReportAllocs()
 	for b.Loop() {

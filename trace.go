@@ -207,13 +207,11 @@ func newTrace(err error) *TraceErr {
 	// newTrace does not call newTraceWithDepth so the depth value is consistent
 	// between both methods.
 	const depth = 2
-	traces := internal.CaptureTraces(depth)
-	return &TraceErr{Err: err, Traces: traces}
+	return &TraceErr{Err: err, stack: internal.CaptureStack(depth)}
 }
 
 func newTraceWithDepth(err error, depth int) *TraceErr {
-	traces := internal.CaptureTraces(depth)
-	return &TraceErr{Err: err, Traces: traces}
+	return &TraceErr{Err: err, stack: internal.CaptureStack(depth)}
 }
 
 type Traces = internal.Traces
@@ -236,8 +234,9 @@ func (e *TraceErr) MarshalJSON() ([]byte, error) {
 type TraceErr struct {
 	// Err is the underlying error that TraceErr wraps
 	Err error `json:"error"`
-	// Traces is a slice of stack trace entries for the error
-	Traces `json:"-"`
+	// stack holds the stack captured when the error was created by this
+	// package. It is resolved into traces when accessed by GetTraces.
+	stack internal.Stack
 	// Message is an optional message that can be wrapped with the original error.
 	//
 	// This field is obsolete, replaced by messages list below.
@@ -261,8 +260,6 @@ func (r *RawTrace) Error() string {
 type RawTrace struct {
 	// Err specifies the original error
 	Err json.RawMessage `json:"error,omitempty"`
-	// Traces lists the stack traces at the moment the error was recorded
-	Traces `json:"traces,omitempty"`
 	// Message specifies the optional user-facing message
 	Message string `json:"message,omitempty"`
 	// Messages is a list of user messages added to this error.
@@ -278,7 +275,7 @@ func (e *TraceErr) Clone() *TraceErr {
 
 	tr := &TraceErr{
 		Err:     e.Err,
-		Traces:  e.Traces,
+		stack:   e.stack,
 		Message: e.Message,
 	}
 
@@ -361,6 +358,31 @@ func (e *TraceErr) Error() string {
 
 func (e *TraceErr) GetFields() map[string]interface{} {
 	return e.Fields
+}
+
+// GetTraces returns the stack trace entries for the error.
+func (e *TraceErr) GetTraces() Traces {
+	return e.stack.Traces()
+}
+
+// Func returns the function name where the error was created.
+func (e *TraceErr) Func() string {
+	return e.GetTraces().Func()
+}
+
+// FuncName returns the unqualified function name where the error was created.
+func (e *TraceErr) FuncName() string {
+	return e.GetTraces().FuncName()
+}
+
+// Loc returns the file and line where the error was created.
+func (e *TraceErr) Loc() string {
+	return e.GetTraces().Loc()
+}
+
+// String returns a debug-friendly representation of the stack trace.
+func (e *TraceErr) String() string {
+	return e.GetTraces().String()
 }
 
 // Unwrap returns the error this TraceErr wraps. The returned error may also
@@ -600,7 +622,7 @@ func (r proxyError) DebugReport() string {
 	if !ok {
 		return DebugReport(r.TraceErr)
 	}
-	return debugReport(wrappedErr, r.TraceErr.Traces)
+	return debugReport(wrappedErr, r.TraceErr.GetTraces())
 }
 
 func debugReport(err *TraceErr, caught Traces) string {
@@ -627,7 +649,7 @@ func debugReport(err *TraceErr, caught Traces) string {
 		}
 	}
 	buf.WriteString("Stack Trace:\n")
-	writeEscapedTraces(buf, err.Traces)
+	writeEscapedTraces(buf, err.GetTraces())
 	buf.WriteByte('\n')
 	if len(caught) > 0 {
 		buf.WriteString("Caught:\n")

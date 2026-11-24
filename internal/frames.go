@@ -34,48 +34,49 @@ type Trace struct {
 	Line int `json:"line"`
 }
 
-// FrameCursor stores the position in a call stack
-type FrameCursor struct {
-	// Current specifies the current stack frame.
-	// if omitted, rest contains the complete stack
-	Current *runtime.Frame
-	// Rest specifies the rest of stack frames to explore
-	Rest *runtime.Frames
-	// N specifies the total number of stack frames
-	N int
-}
-
 // Traces is a list of trace entries
 type Traces []Trace
 
-// CaptureTraces gets the current stack trace with some deep frames skipped
-func CaptureTraces(skip int) Traces {
-	var buf [32]uintptr
-	// +2 means that we also skip `CaptureTraces` and `runtime.Callers` frames.
-	n := runtime.Callers(skip+2, buf[:])
-	pcs := buf[:n]
-	frames := runtime.CallersFrames(pcs)
-	cursor := FrameCursor{
-		Rest: frames,
-		N:    n,
-	}
-	return GetTracesFromCursor(cursor)
+// maxStackDepth is the maximum number of frames captured for an error.
+const maxStackDepth = 32
+
+// Stack is a captured call stack. Program counters are captured eagerly so
+// they reflect the call site, but resolving them into file names, function
+// names, and line numbers is deferred until Traces because it is comparatively
+// expensive and most errors never have their traces inspected.
+type Stack []uintptr
+
+// CaptureStack captures the current call stack with some deep frames skipped.
+func CaptureStack(skip int) Stack {
+	pcs := make(Stack, maxStackDepth)
+	// +2 means that we also skip `CaptureStack` and `runtime.Callers` frames.
+	n := runtime.Callers(skip+2, pcs)
+	return pcs[:n]
 }
 
-// GetTracesFromCursor gets the current stack trace from a given cursor
-func GetTracesFromCursor(cursor FrameCursor) Traces {
-	traces := make(Traces, 0, cursor.N)
-	if cursor.Current != nil {
-		traces = append(traces, frameToTrace(*cursor.Current))
+// Traces resolves the captured stack.
+func (s Stack) Traces() Traces {
+	if len(s) == 0 {
+		return nil
 	}
-	for i := 0; i < cursor.N; i++ {
-		frame, more := cursor.Rest.Next()
+	return getTraces(runtime.CallersFrames(s), len(s))
+}
+
+// CaptureTraces gets the current stack trace with some deep frames skipped
+func CaptureTraces(skip int) Traces {
+	// +1 skips this function in addition to CaptureStack's own frames.
+	return CaptureStack(skip + 1).Traces()
+}
+
+func getTraces(frames *runtime.Frames, capacity int) Traces {
+	traces := make(Traces, 0, capacity)
+	for {
+		frame, more := frames.Next()
 		traces = append(traces, frameToTrace(frame))
 		if !more {
-			break
+			return traces
 		}
 	}
-	return traces
 }
 
 func frameToTrace(frame runtime.Frame) Trace {

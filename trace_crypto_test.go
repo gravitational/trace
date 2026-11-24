@@ -116,7 +116,7 @@ func TestGenericErrors(t *testing.T) {
 			t.Fatalf("Expected error to be of type *TraceErr: %#v", err)
 		}
 
-		assert.NotEmpty(t, traceErr.Traces, testCase.comment)
+		assert.NotEmpty(t, traceErr.GetTraces(), testCase.comment)
 		assert.Regexp(t, ".*.trace_crypto_test\\.go.*", line(DebugReport(err)), testCase.comment)
 		assert.NotRegexp(t, ".*.errors\\.go.*", line(DebugReport(err)), testCase.comment)
 		assert.NotRegexp(t, ".*.trace\\.go.*", line(DebugReport(err)), testCase.comment)
