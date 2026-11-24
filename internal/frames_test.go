@@ -52,8 +52,8 @@ func TestCaptureStackDepth(t *testing.T) {
 			depth: 1,
 		},
 		{
-			name:  "initial capacity",
-			depth: initialStackDepth,
+			name:  "medium",
+			depth: maxStackDepth / 2,
 		},
 		{
 			name:  "maximum capacity",

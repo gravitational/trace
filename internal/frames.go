@@ -37,13 +37,8 @@ type Trace struct {
 // Traces is a list of trace entries
 type Traces []Trace
 
-const (
-	// initialStackDepth is the number of program counters allocated for typical
-	// stacks before retrying with the maximum size.
-	initialStackDepth = 16
-	// maxStackDepth is the maximum number of frames captured for an error.
-	maxStackDepth = 32
-)
+// maxStackDepth is the maximum number of frames captured for an error.
+const maxStackDepth = 32
 
 // Stack is a captured call stack. Program counters are captured eagerly so
 // they reflect the call site, but resolving them into file names, function
@@ -53,13 +48,9 @@ type Stack []uintptr
 
 // CaptureStack captures the current call stack with some deep frames skipped.
 func CaptureStack(skip int) Stack {
-	pcs := make(Stack, initialStackDepth)
+	pcs := make(Stack, maxStackDepth)
 	// +2 means that we also skip `CaptureStack` and `runtime.Callers` frames.
 	n := runtime.Callers(skip+2, pcs)
-	if n == len(pcs) {
-		pcs = make(Stack, maxStackDepth)
-		n = runtime.Callers(skip+2, pcs)
-	}
 	return pcs[:n]
 }
 
