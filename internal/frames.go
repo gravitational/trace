@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"path/filepath"
 	"runtime"
+	"strconv"
 	"strings"
 )
 
@@ -119,11 +120,29 @@ func (s Traces) String() string {
 	if len(s) == 0 {
 		return ""
 	}
-	out := make([]string, len(s))
-	for i, t := range s {
-		out[i] = fmt.Sprintf("\t%v:%v %v", t.Path, t.Line, t.Func)
+	// Reserve room for each frame's separators and the longest int64 line number.
+	const maxLineLen = len("-9223372036854775808")
+	const maxFrameOverhead = len("\n\t: ") + maxLineLen
+	size := 0
+	for _, t := range s {
+		size += len(t.Path) + len(t.Func) + maxFrameOverhead
 	}
-	return strings.Join(out, "\n")
+
+	var sb strings.Builder
+	sb.Grow(size)
+	var line [maxLineLen]byte
+	for i, t := range s {
+		if i > 0 {
+			sb.WriteByte('\n')
+		}
+		sb.WriteByte('\t')
+		sb.WriteString(t.Path)
+		sb.WriteByte(':')
+		sb.Write(strconv.AppendInt(line[:0], int64(t.Line), 10))
+		sb.WriteByte(' ')
+		sb.WriteString(t.Func)
+	}
+	return sb.String()
 }
 
 // String returns debug-friendly representation of this trace

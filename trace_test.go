@@ -322,6 +322,22 @@ func TestWrapWithMessage(t *testing.T) {
 	assert.NotRegexp(t, ".*trace.go.*", line(DebugReport(err)))
 }
 
+func TestFormattedErrorMessages(t *testing.T) {
+	tests := []struct {
+		format string
+		args   []any
+	}{
+		{format: "literal message"},
+		{format: "100% complete"},
+		{format: "value: %q", args: []any{"test"}},
+		{format: "missing: %s"},
+	}
+
+	for _, test := range tests {
+		require.Equal(t, fmt.Sprintf(test.format, test.args...), BadParameter(test.format, test.args...).Error())
+	}
+}
+
 func TestUserMessageWithFields(t *testing.T) {
 	testErr := fmt.Errorf("description")
 	assert.Equal(t, testErr.Error(), UserMessageWithFields(testErr))
@@ -595,7 +611,7 @@ func TestStdlibCompat(t *testing.T) {
 func TestAggregate_StdlibCompat(t *testing.T) {
 	randomErr := errors.New("random")
 	bpMsg := "bad param"
-	bpErr := BadParameter(bpMsg)
+	bpErr := BadParameter("%s", bpMsg)
 	fooErr := errors.New("foo")
 
 	agg := Wrap(NewAggregate(Wrap(bpErr), fooErr))
@@ -691,8 +707,8 @@ func BenchmarkDebugReport(b *testing.B) {
 		},
 	}
 
-	for i := 0; i < b.N; i++ {
-		report := err.DebugReport()
-		require.NotEmpty(b, report)
+	b.ReportAllocs()
+	for b.Loop() {
+		err.DebugReport()
 	}
 }
