@@ -20,6 +20,7 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net"
 	"net/url"
 	"os"
@@ -321,17 +322,17 @@ func IsAccessDenied(e error) bool {
 func ConvertSystemError(err error) error {
 	innerError := Unwrap(err)
 
-	if os.IsExist(innerError) {
+	if errors.Is(innerError, fs.ErrExist) {
 		return newTrace(&AlreadyExistsError{
 			Message: innerError.Error(),
 		})
 	}
-	if os.IsNotExist(innerError) {
+	if errors.Is(innerError, fs.ErrNotExist) {
 		return newTrace(&NotFoundError{
 			Message: innerError.Error(),
 		})
 	}
-	if os.IsPermission(innerError) {
+	if errors.Is(innerError, fs.ErrPermission) {
 		return newTrace(&AccessDeniedError{
 			Message: innerError.Error(),
 		})
@@ -342,10 +343,7 @@ func ConvertSystemError(err error) error {
 			Err: realErr,
 		})
 	case *os.PathError:
-		message := fmt.Sprintf("failed to execute command %v error:  %v", realErr.Path, realErr.Err)
-		return newTrace(&AccessDeniedError{
-			Message: message,
-		})
+		return newTrace(&AccessDeniedError{Message: realErr.Error()})
 	case x509SystemRootsError, x509UnknownAuthorityError:
 		return newTrace(&TrustError{Err: innerError})
 	}
