@@ -355,6 +355,20 @@ func TestAggregates(t *testing.T) {
 	assert.Equal(t, "failed one, failed two", err.Error())
 }
 
+func TestAggregateUserMessageKeepsEachCause(t *testing.T) {
+	proxyErr := Wrap(BadParameter("the fizzbuzz buzzed too hard"), "joining via proxy")
+	authErr := Wrap(BadParameter("auth server unavailable: cert invalid"), "joining via auth server")
+	err := Wrap(NewAggregate(proxyErr, authErr), "failed to join")
+
+	assert.Equal(t, strings.Join([]string{
+		"failed to join",
+		"\tjoining via proxy",
+		"\t\tthe fizzbuzz buzzed too hard",
+		"\tjoining via auth server",
+		"\t\tauth server unavailable: cert invalid",
+	}, "\n"), UserMessage(err))
+}
+
 func TestErrorf(t *testing.T) {
 	err := Errorf("error")
 	assert.Regexp(t, ".*.trace_test.go.*", line(DebugReport(err)))
