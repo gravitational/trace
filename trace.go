@@ -293,13 +293,38 @@ func (e *TraceErr) Clone() *TraceErr {
 	return tr
 }
 
+// userMessageCause is the text placed after the wrapper messages.
+// The caller has already written the indent of the first line.
+// An aggregate's Error method joins causes with a comma, which glues the
+// next multi-line cause onto the last line of the previous one.
+func userMessageCause(err error, indent int) string {
+	agg, ok := err.(Aggregate)
+	if !ok {
+		return UserMessage(err)
+	}
+	pad := strings.Repeat("\t", indent)
+	var buf strings.Builder
+	first := true
+	for _, child := range agg.Errors() {
+		for _, line := range strings.Split(UserMessage(child), "\n") {
+			if !first {
+				buf.WriteByte('\n')
+				buf.WriteString(pad)
+			}
+			first = false
+			buf.WriteString(line)
+		}
+	}
+	return buf.String()
+}
+
 // UserMessage returns user-friendly error message
 func (e *TraceErr) UserMessage() string {
 	if len(e.Messages) > 0 {
 		// Format all collected messages in the reverse order, with each error
 		// on its own line with appropriate indentation so they form a tree and
 		// it's easy to see the cause and effect.
-		cause := UserMessage(e.Err)
+		cause := userMessageCause(e.Err, len(e.Messages))
 		// Each message is followed by a newline and an increasing number of tabs.
 		size := len(cause) + len(e.Messages) + len(e.Messages)*(len(e.Messages)+1)/2
 		for _, message := range e.Messages {
@@ -339,10 +364,33 @@ func writeEscapedUserMessage(buf *bytes.Buffer, e *TraceErr) {
 			buf.WriteByte('\t')
 		}
 	}
+	if len(e.Messages) > 0 {
+		if agg, ok := e.Err.(Aggregate); ok {
+			writeEscapedAggregateCause(buf, agg, len(e.Messages))
+			return
+		}
+	}
 	if cause, ok := e.Err.(*TraceErr); ok {
 		writeEscapedUserMessage(buf, cause)
-	} else {
-		writeEscaped(buf, UserMessage(e.Err))
+		return
+	}
+	writeEscaped(buf, UserMessage(e.Err))
+}
+
+// writeEscapedAggregateCause matches userMessageCause, with HTML escaping.
+func writeEscapedAggregateCause(buf *bytes.Buffer, agg Aggregate, indent int) {
+	first := true
+	for _, child := range agg.Errors() {
+		for _, line := range strings.Split(UserMessage(child), "\n") {
+			if !first {
+				buf.WriteByte('\n')
+				for range indent {
+					buf.WriteByte('\t')
+				}
+			}
+			first = false
+			writeEscaped(buf, line)
+		}
 	}
 }
 
